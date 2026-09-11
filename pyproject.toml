@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nr-ul-sim"
+version = "0.1.0"
+description = "5G NR PUSCH uplink BER simulator based on NVIDIA Sionna"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "sionna>=2.0.0",
+  "torch",
+  "numpy",
+  "matplotlib",
+]
+
+[project.scripts]
+nr-ul-sim = "nr_ul_sim.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["nr_ul_sim*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

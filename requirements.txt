@@ -1,0 +1,4 @@
+sionna>=2.0.0
+torch
+numpy
+matplotlib
