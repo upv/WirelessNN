@@ -1,0 +1,86 @@
+{
+  "scenario_id": 69,
+  "channel": "uma",
+  "channel_code": 3,
+  "iot_db": 3.339485670985498,
+  "num_interferers": 2,
+  "num_ue": 3,
+  "rank": 1,
+  "num_layers_total": 3,
+  "num_rx_ant": 4,
+  "num_ue_ant": 1,
+  "speed_kmh": 8.75043798941638,
+  "delay_spread_ns": null,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 2008231027,
+  "features": {
+    "gain_db": 0.7707209539346309,
+    "cond_db": 17.152759552001953,
+    "capacity_bpcu_0db": 6.010587692260742,
+    "freq_corr": 0.9993184208869934,
+    "time_corr": 0.9998856782913208,
+    "num_rx_ant": 4.0,
+    "num_streams": 3.0
+  },
+  "channel_shape": [
+    4,
+    3,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 704,
+      "working_point_db": {
+        "mr": 9.766664820061605,
+        "lmmse": 13.07060061728458,
+        "ideal_mmse": 8.691101385450217,
+        "zf": 14.36366241945581,
+        "irc": 7.876678507665192
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 2472,
+      "working_point_db": {
+        "mr": null,
+        "lmmse": 23.261429088111033,
+        "ideal_mmse": 19.92807332090025,
+        "zf": 23.588369599959,
+        "irc": 20.586647101971206
+      },
+      "working_point_status": {
+        "mr": "not_reached",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

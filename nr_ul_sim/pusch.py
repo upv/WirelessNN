@@ -1,30 +1,12 @@
-"""NR PUSCH configuration: DMRS Type-1, 68 PRB / 816 subcarriers, FFT 1024."""
-
 from __future__ import annotations
-
-from typing import Any
-
-import numpy as np
 
 from .parameters import SimConfig
 
 
-def _as_int(value: Any) -> int:
-    if hasattr(value, "detach"):
-        value = value.detach().cpu()
-    if hasattr(value, "numel"):
-        return int(value.reshape(-1)[0].item())
-    if hasattr(value, "item"):
-        return int(value.item())
-    return int(value)
-
-
 def build_pusch_configs(cfg: SimConfig):
-    """Create one PUSCHConfig per UE with orthogonal DMRS Type-1 ports."""
     from sionna.phy.nr import PUSCHConfig
 
     mcs_table, mcs_index = cfg.resolved_mcs
-    dmrs_length = cfg.resolved_dmrs_length
     num_ue_ant = cfg.resolved_ue_ant
     if num_ue_ant not in (1, 2, 4):
         raise ValueError("NR PUSCH antenna ports must be 1, 2, or 4")
@@ -39,14 +21,11 @@ def build_pusch_configs(cfg: SimConfig):
     base.symbol_allocation = [0, cfg.num_ofdm_symbols]
     base.num_antenna_ports = num_ue_ant
     base.num_layers = cfg.num_layers
+    base.precoding = "codebook" if num_ue_ant > cfg.num_layers else "non-codebook"
     if num_ue_ant > cfg.num_layers:
-        base.precoding = "codebook"
         base.tpmi = 0
-    else:
-        base.precoding = "non-codebook"
-
     base.dmrs.config_type = 1
-    base.dmrs.length = dmrs_length
+    base.dmrs.length = cfg.resolved_dmrs_length
     base.dmrs.additional_position = cfg.dmrs_additional_position
     base.dmrs.num_cdm_groups_without_data = cfg.num_cdm_groups_without_data
     base.tb.mcs_table = mcs_table
@@ -63,12 +42,7 @@ def build_pusch_configs(cfg: SimConfig):
 
 
 def pad_transmitter_fft(transmitter, cfg: SimConfig):
-    """Rebuild the OFDM grid with FFT size 1024 and guard subcarriers.
-
-    Sionna's PUSCHTransmitter uses ``fft_size = 12 * num_prb`` (816 for 68 PRBs).
-    NR 25 MHz / 30 kHz numerology uses a 1024-point FFT, so unused bins are
-    filled with left/right guards: 104 + 816 + 104.
-    """
+    """Sionna maps used PRBs only; rebuild the grid with FFT guards."""
     from sionna.phy.ofdm import ResourceGrid, ResourceGridMapper
 
     old = transmitter.resource_grid
@@ -78,7 +52,7 @@ def pad_transmitter_fft(transmitter, cfg: SimConfig):
             f"PUSCH grid has {used} subcarriers, expected {cfg.num_used_subcarriers}"
         )
     if cfg.fft_size == used:
-        return old
+        return
 
     left, right = cfg.guard_carriers
     cp_samples = int(round(old.cyclic_prefix_length * cfg.fft_size / used))
@@ -99,20 +73,18 @@ def pad_transmitter_fft(transmitter, cfg: SimConfig):
     transmitter._resource_grid_mapper = ResourceGridMapper(
         rg, precision=transmitter.precision, device=transmitter.device
     )
-    return rg
+
+
+def strip_guard_subcarriers(h, guard_carriers: tuple[int, int]):
+    left, right = int(guard_carriers[0]), int(guard_carriers[1])
+    if left <= 0 and right <= 0:
+        return h
+    return h[..., left : h.shape[-1] - right] if right else h[..., left:]
 
 
 def build_transmitter(cfg: SimConfig):
     from sionna.phy.nr import PUSCHTransmitter
 
-    configs = build_pusch_configs(cfg)
-    transmitter = PUSCHTransmitter(configs, output_domain=cfg.domain)
+    transmitter = PUSCHTransmitter(build_pusch_configs(cfg), output_domain="freq")
     pad_transmitter_fft(transmitter, cfg)
-    return transmitter, configs
-
-
-def build_stream_management(cfg: SimConfig):
-    from sionna.phy.mimo import StreamManagement
-
-    rx_tx_association = np.ones([1, cfg.num_ue], dtype=bool)
-    return StreamManagement(rx_tx_association, cfg.num_layers)
+    return transmitter

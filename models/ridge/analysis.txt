@@ -1,0 +1,28 @@
+Ridge working-point model (scalar features only, no H tensor)
+features: 21  receivers: mr, lmmse, ideal_mmse, zf, irc
+split: 4000 train / 1000 test channels  seed=0
+alpha (inner CV): {'mr': 0.001, 'lmmse': 10.0, 'ideal_mmse': 0.001, 'zf': 10.0, 'irc': 10.0}
+
+receiver     train RMSE test RMSE test MAE     R2    bias  p90|e|  QPSK / 16QAM RMSE
+mr                 2.86      2.65     1.96   0.93    0.02    3.92  2.59 / 2.82
+lmmse              2.44      2.49     1.91   0.93    0.03    3.98  2.48 / 2.49
+ideal_mmse         2.73      2.74     2.11   0.93    0.04    4.44  2.87 / 2.57
+zf                 2.28      2.30     1.77   0.94    0.03    3.68  2.22 / 2.39
+irc                2.75      2.79     2.14   0.90   -0.00    4.47  2.83 / 2.75
+
+Largest |standardized| weights for L-MMSE (σ of feature → dB of WP):
+  iot_db                  std  +6.99   per unit  +1.056
+  cond_db                 std  +4.06   per unit  +0.492
+  num_interferers         std  +3.07   per unit  +2.755
+  num_bits_per_symbol     std  +2.16   per unit  +2.159
+  target_coderate         std  +2.16   per unit +18.050
+  gain_db                 std  -1.11   per unit  -0.933
+  rank                    std  +0.75   per unit  +1.586
+  freq_corr               std  -0.40   per unit -29.275
+  num_streams             std  -0.29   per unit  -0.262
+  num_layers_total        std  -0.29   per unit  -0.262
+
+Usage:
+  from nr_ul_sim.ridge import RidgePipeline
+  pipe = RidgePipeline.load('models/ridge')
+  wp_db = pipe.predict(data, 'lmmse')

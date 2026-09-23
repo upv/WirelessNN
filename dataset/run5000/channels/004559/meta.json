@@ -1,0 +1,86 @@
+{
+  "scenario_id": 4559,
+  "channel": "cdl-b",
+  "channel_code": 0,
+  "iot_db": 14.33114283702638,
+  "num_interferers": 2,
+  "num_ue": 1,
+  "rank": 2,
+  "num_layers_total": 2,
+  "num_rx_ant": 4,
+  "num_ue_ant": 2,
+  "speed_kmh": 6.614610813582942,
+  "delay_spread_ns": 162.64471070874586,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 751414992,
+  "features": {
+    "gain_db": -0.7703973879209294,
+    "cond_db": 2.6552727222442627,
+    "capacity_bpcu_0db": 4.1614251136779785,
+    "freq_corr": 0.9972767233848572,
+    "time_corr": 0.9999942183494568,
+    "num_rx_ant": 4.0,
+    "num_streams": 2.0
+  },
+  "channel_shape": [
+    4,
+    2,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 1416,
+      "working_point_db": {
+        "mr": 19.143601670172934,
+        "lmmse": 19.337314551687697,
+        "ideal_mmse": 17.648544229610025,
+        "zf": 19.340892648409188,
+        "irc": 16.49336694284221
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 4992,
+      "working_point_db": {
+        "mr": 28.065382826803642,
+        "lmmse": 28.024738512606927,
+        "ideal_mmse": 26.529261515924723,
+        "zf": 28.00863271069199,
+        "irc": 23.507846576900754
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

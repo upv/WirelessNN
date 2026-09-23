@@ -1,0 +1,86 @@
+{
+  "scenario_id": 405,
+  "channel": "cdl-b",
+  "channel_code": 0,
+  "iot_db": 5.707846832384053,
+  "num_interferers": 3,
+  "num_ue": 2,
+  "rank": 2,
+  "num_layers_total": 4,
+  "num_rx_ant": 4,
+  "num_ue_ant": 2,
+  "speed_kmh": 4.320399936747458,
+  "delay_spread_ns": 161.89262912237362,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 1838790027,
+  "features": {
+    "gain_db": -0.22091613662362272,
+    "cond_db": 12.258874893188477,
+    "capacity_bpcu_0db": 7.525925636291504,
+    "freq_corr": 0.9974179863929749,
+    "time_corr": 0.9999863505363464,
+    "num_rx_ant": 4.0,
+    "num_streams": 4.0
+  },
+  "channel_shape": [
+    4,
+    4,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 1416,
+      "working_point_db": {
+        "mr": 18.079354388559803,
+        "lmmse": 13.148197298722556,
+        "ideal_mmse": 10.742845872621045,
+        "zf": 13.703890118092902,
+        "irc": 11.288385833676731
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 4992,
+      "working_point_db": {
+        "mr": null,
+        "lmmse": 22.152094056240387,
+        "ideal_mmse": 19.785358027605216,
+        "zf": 22.213241006018706,
+        "irc": 20.0284302158252
+      },
+      "working_point_status": {
+        "mr": "not_reached",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

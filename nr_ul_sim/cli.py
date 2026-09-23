@@ -1,5 +1,3 @@
-"""Command-line interface for NR uplink BER campaigns."""
-
 from __future__ import annotations
 
 import argparse
@@ -7,72 +5,38 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from .parameters import RECEIVERS, parse_csv_floats
-from .parameters import SimConfig
-from .plotting import plot_campaign
+from .parameters import (
+    CHANNEL_ESTIMATORS,
+    RECEIVERS,
+    SimConfig,
+    canonicalize_estimator_name,
+    canonicalize_receiver_name,
+    parse_csv_floats,
+)
+from .plotting import save_campaign_plots
 from .simulator import NRUplinkSimulator
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description=(
-            "Simulate 5G NR PUSCH uplink BER with Sionna "
-            "(CDL-B/C, UMi, UMa; MR / L-MMSE / ZF / IRC)."
-        )
-    )
-    p.add_argument(
-        "--channel",
-        default="cdl-c",
-        choices=["cdl-b", "cdl-c", "umi", "uma"],
-        help="3GPP channel model",
-    )
-    p.add_argument(
-        "--delay-spread-ns",
-        type=float,
-        default=None,
-        help="RMS delay spread in nanoseconds (CDL; ignored by UMi/UMa geometry)",
-    )
-    p.add_argument("--num-ue", type=int, default=1, help="Number of co-scheduled UEs (1-4)")
-    p.add_argument("--num-rx-ant", type=int, default=4, help="gNB receive antennas")
-    p.add_argument(
-        "--num-ue-ant",
-        type=int,
-        default=None,
-        help="UE antenna ports (1/2/4). Default: 1 if rank 1, else 2",
-    )
-    p.add_argument("--rank", type=int, default=1, dest="num_layers", help="Layers per UE (1-2)")
-    p.add_argument("--speed-kmh", type=float, default=3.0, help="UE speed in km/h")
-    p.add_argument(
-        "--snr-db",
-        default="-20:20:2",
-        help="Per-antenna SNR points. Comma list or start:stop:step",
-    )
-    p.add_argument(
-        "--iot-db",
-        default="0,10,20",
-        help="Other-cell IoT / INR in dB. 0 means no interference",
-    )
-    p.add_argument("--num-interferers", type=int, default=2, help="Neighbour-cell interferers")
-    p.add_argument(
-        "--modulation",
-        default="qpsk",
-        choices=["qpsk", "qam16"],
-        help="PUSCH modulation (MCS Table 1: QPSK idx 4, 16QAM idx 14)",
-    )
+    p = argparse.ArgumentParser(description="5G NR PUSCH uplink BER (Sionna)")
+    p.add_argument("--channel", default="cdl-c", choices=["cdl-b", "cdl-c", "umi", "uma"])
+    p.add_argument("--delay-spread-ns", type=float, default=None, help="CDL RMS delay spread [ns]")
+    p.add_argument("--num-ue", type=int, default=1)
+    p.add_argument("--num-rx-ant", type=int, default=4)
+    p.add_argument("--num-ue-ant", type=int, default=None, help="UE ports 1/2/4; default from rank")
+    p.add_argument("--rank", type=int, default=1, dest="num_layers")
+    p.add_argument("--speed-kmh", type=float, default=3.0)
+    p.add_argument("--snr-db", default="-20:30:2", help="Comma list or start:stop:step")
+    p.add_argument("--iot-db", default="0,10,20", help="INR dB; 0 = no interferer")
+    p.add_argument("--num-interferers", type=int, default=2)
+    p.add_argument("--modulation", default="qpsk", choices=["qpsk", "qam16", "qam64"])
     p.add_argument("--mcs-index", type=int, default=None)
     p.add_argument("--mcs-table", type=int, default=None)
-    p.add_argument(
-        "--receivers",
-        default="mr,lmmse,zf,irc",
-        help="Comma-separated subset of mr,lmmse,zf,irc",
-    )
-    p.add_argument("--perfect-csi", action="store_true", help="Use perfect CSI instead of DMRS LS")
-    p.add_argument(
-        "--iot-cov",
-        default="perfect",
-        choices=["perfect", "estimated"],
-        help="IRC interference covariance: from interferer H or sample of y",
-    )
+    p.add_argument("--receivers", default="mr,lmmse,ideal_mmse,zf,irc")
+    p.add_argument("--estimators", default="ls_lin", dest="channel_estimators",
+                   help="Comma list: perfect,ls_nn,ls_lin,ls_lin_time_avg,lmmse_ce")
+    p.add_argument("--perfect-csi", action="store_true")
+    p.add_argument("--iot-cov", default="perfect", choices=["perfect", "estimated"])
     p.add_argument("--carrier-ghz", type=float, default=3.5)
     p.add_argument("--num-prb", type=int, default=68)
     p.add_argument("--fft-size", type=int, default=1024)
@@ -81,24 +45,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--num-target-bit-errors", type=int, default=200)
     p.add_argument("--target-ber", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument(
-        "--outdir",
-        default="results",
-        help="Directory for JSON results and BER plots",
-    )
-    p.add_argument(
-        "--quick",
-        action="store_true",
-        help="Tiny smoke run: 8 PRB, few SNR points, one IoT value",
-    )
+    p.add_argument("--outdir", default="results")
+    p.add_argument("--quick", action="store_true", help="Tiny smoke run")
     return p
 
 
 def config_from_args(args: argparse.Namespace) -> SimConfig:
-    receivers = tuple(r.strip().lower() for r in args.receivers.split(",") if r.strip())
+    receivers = tuple(
+        canonicalize_receiver_name(r) for r in args.receivers.split(",") if r.strip()
+    )
     unknown = [r for r in receivers if r not in RECEIVERS]
     if unknown:
         raise SystemExit(f"Unknown receivers {unknown}")
+    estimators = tuple(
+        canonicalize_estimator_name(e)
+        for e in args.channel_estimators.split(",") if e.strip()
+    )
+    unknown_ce = [e for e in estimators if e not in CHANNEL_ESTIMATORS]
+    if unknown_ce:
+        raise SystemExit(f"Unknown channel estimators {unknown_ce}")
 
     cfg = SimConfig(
         channel=args.channel,
@@ -115,6 +80,7 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
         mcs_table=args.mcs_table,
         mcs_index=args.mcs_index,
         receivers=receivers,
+        channel_estimators=estimators,
         perfect_csi=args.perfect_csi,
         iot_cov=args.iot_cov,
         carrier_frequency=args.carrier_ghz * 1e9,
@@ -136,19 +102,14 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
     return cfg
 
 
-def save_campaign(campaign: dict, outdir: Path) -> tuple[Path, Path]:
+def save_campaign(campaign: dict, outdir: Path) -> tuple[Path, list[Path]]:
     outdir.mkdir(parents=True, exist_ok=True)
     cfg = campaign["config"]
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    stem = (
-        f"{cfg['channel']}_{cfg['modulation']}_ue{cfg['num_ue']}"
-        f"_r{cfg['rank']}_{stamp}"
-    )
+    stem = f"{cfg['channel']}_{cfg['modulation']}_ue{cfg['num_ue']}_r{cfg['rank']}_{stamp}"
     json_path = outdir / f"{stem}.json"
-    png_path = outdir / f"{stem}.png"
     json_path.write_text(json.dumps(campaign, indent=2))
-    plot_campaign(campaign, png_path)
-    return json_path, png_path
+    return json_path, save_campaign_plots(campaign, outdir, stem)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -157,11 +118,10 @@ def main(argv: list[str] | None = None) -> int:
     print("NR PUSCH uplink simulation")
     for key, value in cfg.summary().items():
         print(f"  {key}: {value}")
-    sim = NRUplinkSimulator(cfg)
-    campaign = sim.run()
-    json_path, png_path = save_campaign(campaign, Path(args.outdir))
+    json_path, plots = save_campaign(NRUplinkSimulator(cfg).run(), Path(args.outdir))
     print(f"\nWrote {json_path}")
-    print(f"Wrote {png_path}")
+    for png_path in plots:
+        print(f"Wrote {png_path}")
     return 0
 
 

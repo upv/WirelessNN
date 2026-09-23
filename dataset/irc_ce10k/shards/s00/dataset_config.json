@@ -1,0 +1,76 @@
+{
+  "num_samples": 500,
+  "start_index": 0,
+  "outdir": "dataset/irc_ce10k/shards/s00",
+  "seed": 0,
+  "resume": false,
+  "channels": [
+    "cdl-b",
+    "cdl-c",
+    "umi",
+    "uma"
+  ],
+  "modulations": [
+    "qpsk",
+    "qam16",
+    "qam64"
+  ],
+  "receivers": [
+    "irc"
+  ],
+  "channel_estimators": [
+    "perfect",
+    "ls_nn",
+    "ls_lin",
+    "ls_lin_time_avg",
+    "lmmse_ce"
+  ],
+  "num_ue_choices": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "rank_choices": [
+    1,
+    2
+  ],
+  "max_total_layers": 4,
+  "num_rx_ant_choices": [
+    4
+  ],
+  "speed_kmh_range": [
+    3.0,
+    10.0
+  ],
+  "delay_spread_ns_range": [
+    30.0,
+    400.0
+  ],
+  "iot_db_range": [
+    0.0,
+    20.0
+  ],
+  "p_no_iot": 0.25,
+  "num_interferer_choices": [
+    1,
+    2,
+    3
+  ],
+  "num_prb": 8,
+  "fft_size": 1024,
+  "carrier_frequency": 3500000000.0,
+  "iot_cov": "perfect",
+  "channel_mode": "frozen",
+  "target_ber": 0.01,
+  "snr_min": -20.0,
+  "snr_max": 40.0,
+  "coarse_step": 4.0,
+  "refine_db": 0.5,
+  "batch_size": 2,
+  "max_mc_iter": 10,
+  "num_target_bit_errors": 200,
+  "num_freq_bins": 64,
+  "num_symbol_bins": 4,
+  "store_interference": true
+}

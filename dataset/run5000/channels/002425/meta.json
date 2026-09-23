@@ -1,0 +1,86 @@
+{
+  "scenario_id": 2425,
+  "channel": "cdl-c",
+  "channel_code": 1,
+  "iot_db": 16.73758860975329,
+  "num_interferers": 3,
+  "num_ue": 1,
+  "rank": 2,
+  "num_layers_total": 2,
+  "num_rx_ant": 4,
+  "num_ue_ant": 2,
+  "speed_kmh": 3.066520956029846,
+  "delay_spread_ns": 266.90744595133305,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 2098017486,
+  "features": {
+    "gain_db": 1.1630170425186817,
+    "cond_db": 2.5332841873168945,
+    "capacity_bpcu_0db": 5.154963493347168,
+    "freq_corr": 1.0013678073883057,
+    "time_corr": 0.9999998211860657,
+    "num_rx_ant": 4.0,
+    "num_streams": 2.0
+  },
+  "channel_shape": [
+    4,
+    2,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 1416,
+      "working_point_db": {
+        "mr": 20.625017674620597,
+        "lmmse": 21.264406194068194,
+        "ideal_mmse": 19.727377679002835,
+        "zf": 21.27764409493193,
+        "irc": 19.284779674124195
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 4992,
+      "working_point_db": {
+        "mr": 29.626319162061836,
+        "lmmse": 29.88163045367562,
+        "ideal_mmse": 28.547609464478775,
+        "zf": 29.890391218283003,
+        "irc": 26.540574487897548
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

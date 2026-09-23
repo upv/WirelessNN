@@ -1,52 +1,51 @@
-"""Scenario parameters for NR PUSCH uplink simulations."""
-
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any, Iterable, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Iterable
 
 
-RECEIVERS = ("mr", "lmmse", "zf", "irc")
+RECEIVERS = ("mr", "lmmse", "ideal_mmse", "zf", "irc")
+RECEIVER_ALIASES = {
+    "mmse_ideal": "ideal_mmse",
+    "lmmse_ideal": "ideal_mmse",
+    "idealmmse": "ideal_mmse",
+    "perfect_mmse": "ideal_mmse",
+    "mmse_perfect": "ideal_mmse",
+}
 CHANNELS = ("cdl-b", "cdl-c", "umi", "uma")
-MODULATIONS = ("qpsk", "qam16")
-
-# TS 38.214 MCS Table 1
+MODULATIONS = ("qpsk", "qam16", "qam64")
 MCS_PRESETS = {
-    "qpsk": {"mcs_table": 1, "mcs_index": 4, "num_bits_per_symbol": 2},
-    "qam16": {"mcs_table": 1, "mcs_index": 14, "num_bits_per_symbol": 4},
+    "qpsk": (1, 4),
+    "qam16": (1, 14),
+    "qam64": (1, 20),  # 64QAM, coderate ≈ 0.55 (table 1)
 }
-
-# 3GPP TR 38.901 suggested RMS delay-spread values [s]
+CHANNEL_ESTIMATORS = ("perfect", "ls_nn", "ls_lin", "ls_lin_time_avg", "lmmse_ce")
+CHANNEL_ESTIMATOR_ALIASES = {
+    "ls": "ls_lin",
+    "lin": "ls_lin",
+    "ls_linear": "ls_lin",
+    "nn": "ls_nn",
+    "nearest": "ls_nn",
+    "lin_time_avg": "ls_lin_time_avg",
+    "lmmse": "lmmse_ce",
+    "ideal": "perfect",
+    "genie": "perfect",
+    "true": "perfect",
+}
 DEFAULT_DELAY_SPREAD = {
-    "cdl-b": 100e-9,  # nominal
-    "cdl-c": 300e-9,  # long / typical for CDL-C
-    "umi": 129e-9,  # UMi street-canyon, ~3.5 GHz, normal DS (documentation only)
-    "uma": 363e-9,  # UMa, ~3.5 GHz, normal DS (documentation only)
+    "cdl-b": 100e-9,
+    "cdl-c": 300e-9,
+    "umi": 129e-9,
+    "uma": 363e-9,
 }
-
-# 68 PRB BWP, configuration 1 → RBG size 4 → 17 RBGs (TS 38.214)
-RBG_SIZE_CONFIG1 = 4
-
-
-def kmh_to_mps(speed_kmh: float) -> float:
-    """Convert kilometres per hour to metres per second."""
-    return float(speed_kmh) / 3.6
+RBG_SIZE = 4
 
 
 def db_to_lin(value_db: float) -> float:
-    """Convert a dB value to linear scale."""
     return 10.0 ** (float(value_db) / 10.0)
 
 
-def lin_to_db(value: float) -> float:
-    """Convert a linear value to dB."""
-    import math
-
-    return 10.0 * math.log10(max(float(value), 1e-30))
-
-
 def snrdb_to_noise_var(snr_db: float) -> float:
-    """Per-antenna / per-RE noise variance for a normalized channel."""
     return 10.0 ** (-float(snr_db) / 10.0)
 
 
@@ -56,8 +55,39 @@ def as_float_list(values: Iterable[float] | float) -> list[float]:
     return [float(v) for v in values]
 
 
+def canonicalize_receiver_name(name: str) -> str:
+    n = name.strip().lower().replace("-", "_")
+    return RECEIVER_ALIASES.get(n, n)
+
+
+def canonicalize_estimator_name(name: str) -> str:
+    n = name.strip().lower().replace("-", "_")
+    return CHANNEL_ESTIMATOR_ALIASES.get(n, n)
+
+
+def receiver_uses_perfect_csi(name: str, perfect_csi: bool = False) -> bool:
+    return bool(perfect_csi) or canonicalize_receiver_name(name) == "ideal_mmse"
+
+
+def detection_keys(
+    receivers: Iterable[str], estimators: Iterable[str]
+) -> list[tuple[str, str, str]]:
+    """Map a sweep onto ``(result_key, receiver, estimator)``.
+
+    One estimator → keys stay the receiver names (old campaigns). One receiver
+    and several estimators → keys are the estimator names (CE study). Both
+    vary → ``{receiver}_{estimator}``.
+    """
+    recs = tuple(canonicalize_receiver_name(r) for r in receivers)
+    ests = tuple(canonicalize_estimator_name(e) for e in estimators) or ("ls_lin",)
+    if len(ests) == 1:
+        return [(r, r, ests[0]) for r in recs]
+    if len(recs) == 1:
+        return [(e, recs[0], e) for e in ests]
+    return [(f"{r}_{e}", r, e) for r in recs for e in ests]
+
+
 def parse_csv_floats(text: str) -> list[float]:
-    """Parse a comma-separated list, a start:stop:step range, or a single float."""
     text = text.strip()
     if ":" in text and "," not in text:
         parts = [float(p) for p in text.split(":")]
@@ -86,8 +116,6 @@ def parse_csv_floats(text: str) -> list[float]:
 
 @dataclass
 class SimConfig:
-    """Complete configuration of one NR uplink campaign or a single drop."""
-
     channel: str = "cdl-c"
     delay_spread_ns: float | None = None
     num_ue: int = 1
@@ -95,13 +123,14 @@ class SimConfig:
     num_ue_ant: int | None = None
     num_layers: int = 1
     speed_kmh: float = 3.0
-    snr_db: list[float] = field(default_factory=lambda: list(range(-20, 21, 2)))
+    snr_db: list[float] = field(default_factory=lambda: list(range(-20, 31, 2)))
     iot_db: list[float] = field(default_factory=lambda: [0.0])
     num_interferers: int = 2
     modulation: str = "qpsk"
     mcs_table: int | None = None
     mcs_index: int | None = None
     receivers: tuple[str, ...] = RECEIVERS
+    channel_estimators: tuple[str, ...] = ("ls_lin",)
     perfect_csi: bool = False
     iot_cov: str = "perfect"
     carrier_frequency: float = 3.5e9
@@ -110,7 +139,6 @@ class SimConfig:
     fft_size: int = 1024
     num_ofdm_symbols: int = 14
     mapping_type: str = "A"
-    dmrs_type: int = 1
     dmrs_additional_position: int = 1
     dmrs_length: int | None = None
     num_cdm_groups_without_data: int = 2
@@ -119,7 +147,6 @@ class SimConfig:
     num_target_bit_errors: int = 200
     target_ber: float = 0.01
     seed: int = 42
-    domain: str = "freq"
     o2i_model: str = "low"
     enable_pathloss: bool = False
     enable_shadow_fading: bool = False
@@ -128,8 +155,10 @@ class SimConfig:
         self.channel = self.channel.lower()
         self.modulation = self.modulation.lower()
         self.iot_cov = self.iot_cov.lower()
-        self.domain = self.domain.lower()
-        self.receivers = tuple(r.lower() for r in self.receivers)
+        self.receivers = tuple(canonicalize_receiver_name(r) for r in self.receivers)
+        self.channel_estimators = tuple(
+            canonicalize_estimator_name(e) for e in self.channel_estimators
+        ) or ("ls_lin",)
         self.snr_db = as_float_list(self.snr_db)
         self.iot_db = as_float_list(self.iot_db)
 
@@ -143,26 +172,26 @@ class SimConfig:
             raise ValueError("num_layers (rank) must be 1 or 2")
         if self.num_rx_ant < 1:
             raise ValueError("num_rx_ant must be positive")
-        if self.dmrs_type != 1:
-            raise ValueError("Only DMRS Type-1 is supported in this platform")
-        if self.domain != "freq":
-            raise ValueError("Only frequency-domain simulations are supported")
         if self.iot_cov not in ("perfect", "estimated"):
             raise ValueError("iot_cov must be 'perfect' or 'estimated'")
         unknown = [r for r in self.receivers if r not in RECEIVERS]
         if unknown:
             raise ValueError(f"Unknown receivers {unknown}; choose from {RECEIVERS}")
+        unknown_ce = [e for e in self.channel_estimators if e not in CHANNEL_ESTIMATORS]
+        if unknown_ce:
+            raise ValueError(
+                f"Unknown channel estimators {unknown_ce}; choose from {CHANNEL_ESTIMATORS}"
+            )
         if self.num_prb * 12 > self.fft_size:
             raise ValueError(
                 f"{self.num_prb} PRBs need {self.num_prb * 12} subcarriers, "
                 f"larger than FFT size {self.fft_size}"
             )
-        total_layers = self.num_ue * self.num_layers
         max_ports = 8 if self.resolved_dmrs_length == 2 else 4
-        if total_layers > max_ports:
+        if self.num_ue * self.num_layers > max_ports:
             raise ValueError(
-                f"Total layers {total_layers} exceed DMRS Type-1 ports ({max_ports}). "
-                "Reduce users/rank or use dmrs_length=2."
+                f"Total layers {self.num_ue * self.num_layers} exceed "
+                f"DMRS Type-1 ports ({max_ports})."
             )
 
     @property
@@ -171,11 +200,7 @@ class SimConfig:
 
     @property
     def num_rbg(self) -> int:
-        return int(self.num_prb) // RBG_SIZE_CONFIG1
-
-    @property
-    def rbg_size(self) -> int:
-        return RBG_SIZE_CONFIG1
+        return int(self.num_prb) // RBG_SIZE
 
     @property
     def guard_carriers(self) -> tuple[int, int]:
@@ -185,7 +210,7 @@ class SimConfig:
 
     @property
     def speed_mps(self) -> float:
-        return kmh_to_mps(self.speed_kmh)
+        return float(self.speed_kmh) / 3.6
 
     @property
     def delay_spread(self) -> float:
@@ -207,18 +232,16 @@ class SimConfig:
 
     @property
     def resolved_mcs(self) -> tuple[int, int]:
-        preset = MCS_PRESETS[self.modulation]
-        table = self.mcs_table if self.mcs_table is not None else preset["mcs_table"]
-        index = self.mcs_index if self.mcs_index is not None else preset["mcs_index"]
+        table, index = MCS_PRESETS[self.modulation]
+        if self.mcs_table is not None:
+            table = self.mcs_table
+        if self.mcs_index is not None:
+            index = self.mcs_index
         return int(table), int(index)
 
     @property
     def subcarrier_spacing(self) -> float:
         return float(self.subcarrier_spacing_khz) * 1e3
-
-    @property
-    def sampling_rate(self) -> float:
-        return self.fft_size * self.subcarrier_spacing
 
     def summary(self) -> dict[str, Any]:
         table, index = self.resolved_mcs
@@ -239,6 +262,10 @@ class SimConfig:
             "mcs_index": index,
             "receivers": list(self.receivers),
             "perfect_csi": self.perfect_csi,
+            "channel_estimators": list(self.channel_estimators),
+            "channel_estimator": (
+                "perfect" if self.perfect_csi else ",".join(self.channel_estimators)
+            ),
             "iot_cov": self.iot_cov,
             "carrier_frequency_hz": self.carrier_frequency,
             "subcarrier_spacing_khz": self.subcarrier_spacing_khz,
@@ -246,24 +273,11 @@ class SimConfig:
             "num_used_subcarriers": self.num_used_subcarriers,
             "fft_size": self.fft_size,
             "guard_carriers": [left, right],
-            "rbg_size": self.rbg_size,
+            "rbg_size": RBG_SIZE,
             "num_rbg": self.num_rbg,
-            "dmrs_type": self.dmrs_type,
+            "dmrs_type": 1,
             "dmrs_length": self.resolved_dmrs_length,
             "dmrs_additional_position": self.dmrs_additional_position,
             "target_ber": self.target_ber,
             "seed": self.seed,
         }
-
-    def to_dict(self) -> dict[str, Any]:
-        data = asdict(self)
-        data["summary"] = self.summary()
-        return data
-
-
-def validate_receiver_list(receivers: Sequence[str]) -> tuple[str, ...]:
-    names = tuple(r.lower() for r in receivers)
-    unknown = [r for r in names if r not in RECEIVERS]
-    if unknown:
-        raise ValueError(f"Unknown receivers {unknown}; choose from {RECEIVERS}")
-    return names

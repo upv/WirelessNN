@@ -1,0 +1,86 @@
+{
+  "scenario_id": 4193,
+  "channel": "cdl-c",
+  "channel_code": 1,
+  "iot_db": 8.373414432317428,
+  "num_interferers": 3,
+  "num_ue": 2,
+  "rank": 1,
+  "num_layers_total": 2,
+  "num_rx_ant": 4,
+  "num_ue_ant": 1,
+  "speed_kmh": 5.589327330113861,
+  "delay_spread_ns": 253.43702777282732,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 1451544260,
+  "features": {
+    "gain_db": 0.3926082071402668,
+    "cond_db": 6.106290340423584,
+    "capacity_bpcu_0db": 4.459247589111328,
+    "freq_corr": 1.0000157356262207,
+    "time_corr": 0.9999956488609314,
+    "num_rx_ant": 4.0,
+    "num_streams": 2.0
+  },
+  "channel_shape": [
+    4,
+    2,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 704,
+      "working_point_db": {
+        "mr": 15.87279267198529,
+        "lmmse": 13.118414829464047,
+        "ideal_mmse": 11.608730309163136,
+        "zf": 13.072638642886535,
+        "irc": 9.607291130273838
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 2472,
+      "working_point_db": {
+        "mr": null,
+        "lmmse": 21.148683663202313,
+        "ideal_mmse": 19.639961084595576,
+        "zf": 21.150556682864618,
+        "irc": 16.721592190296473
+      },
+      "working_point_status": {
+        "mr": "not_reached",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

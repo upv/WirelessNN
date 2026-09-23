@@ -1,0 +1,86 @@
+{
+  "scenario_id": 3481,
+  "channel": "uma",
+  "channel_code": 3,
+  "iot_db": 3.1260625230150607,
+  "num_interferers": 1,
+  "num_ue": 2,
+  "rank": 1,
+  "num_layers_total": 2,
+  "num_rx_ant": 4,
+  "num_ue_ant": 1,
+  "speed_kmh": 6.430126612531558,
+  "delay_spread_ns": null,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "seed": 1050475239,
+  "features": {
+    "gain_db": -0.3297802394418983,
+    "cond_db": 4.438057899475098,
+    "capacity_bpcu_0db": 4.248570919036865,
+    "freq_corr": 1.000188946723938,
+    "time_corr": 0.9999399781227112,
+    "num_rx_ant": 4.0,
+    "num_streams": 2.0
+  },
+  "channel_shape": [
+    4,
+    2,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 704,
+      "working_point_db": {
+        "mr": 4.277252880218355,
+        "lmmse": 4.145563386594149,
+        "ideal_mmse": 3.0158513366103956,
+        "zf": 4.553217708111791,
+        "irc": 2.637553629692134
+      },
+      "working_point_status": {
+        "mr": "ok",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 2472,
+      "working_point_db": {
+        "mr": null,
+        "lmmse": 12.611969734818363,
+        "ideal_mmse": 11.324298617166644,
+        "zf": 12.630627801271512,
+        "irc": 10.136161707971985
+      },
+      "working_point_status": {
+        "mr": "not_reached",
+        "lmmse": "ok",
+        "ideal_mmse": "ok",
+        "zf": "ok",
+        "irc": "ok"
+      }
+    }
+  }
+}

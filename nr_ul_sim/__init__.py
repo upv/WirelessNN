@@ -1,14 +1,7 @@
-"""5G NR PUSCH uplink simulation platform built on NVIDIA Sionna."""
+"""5G NR PUSCH uplink simulator (Sionna)."""
 
-from .parameters import MCS_PRESETS, SimConfig
 from .metrics import working_point_snr
+from .parameters import SimConfig
 from .simulator import NRUplinkSimulator
 
-__all__ = [
-    "MCS_PRESETS",
-    "NRUplinkSimulator",
-    "SimConfig",
-    "working_point_snr",
-]
-
-__version__ = "0.1.0"
+__all__ = ["NRUplinkSimulator", "SimConfig", "working_point_snr"]

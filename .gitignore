@@ -5,7 +5,16 @@ __pycache__/
 .venv/
 venv/
 results/
+*.npy
+*.log
 *.png
+*.npz
+!models/**/*.npz
 *.json
+!**/meta.json
+!**/dataset_config.json
+!models/**/*.json
 !nr_ul_sim/**
+__pycache__/
+*.py[cod]
 .DS_Store

@@ -1,0 +1,125 @@
+{
+  "scenario_id": 15,
+  "channel": "umi",
+  "channel_code": 2,
+  "iot_db": 15.52353587760986,
+  "num_interferers": 2,
+  "num_ue": 2,
+  "rank": 2,
+  "num_layers_total": 4,
+  "num_rx_ant": 4,
+  "num_ue_ant": 2,
+  "speed_kmh": 8.233056109207247,
+  "delay_spread_ns": null,
+  "carrier_frequency_hz": 3500000000.0,
+  "num_prb": 8,
+  "fft_size": 1024,
+  "target_ber": 0.01,
+  "channel_mode": "frozen",
+  "channel_estimators": [
+    "perfect",
+    "ls_nn",
+    "ls_lin",
+    "ls_lin_time_avg",
+    "lmmse_ce"
+  ],
+  "seed": 396665539,
+  "features": {
+    "gain_db": -0.010993176233552284,
+    "h_rms": 0.9987351643936928,
+    "cond_db": 8.769632339477539,
+    "h_rank": 4.0,
+    "h_eff_rank": 3.5615194072541914,
+    "capacity_bpcu_0db": 8.451593399047852,
+    "freq_corr": 0.9952881932258606,
+    "time_corr": 0.9998189210891724,
+    "rms_delay_samp": 10.758527468166983,
+    "h_spatial_corr": 0.10799132287502289,
+    "stream_imbalance_db": 1.8233211040496826,
+    "num_rx_ant": 4.0,
+    "num_streams": 4.0,
+    "ruu_rank": 4.0,
+    "ruu_eff_rank": 2.5059540684663624,
+    "ruu_cond_db": 9.795609474182129,
+    "ruu_dom_frac": 0.4997937083244324
+  },
+  "channel_shape": [
+    4,
+    4,
+    4,
+    64
+  ],
+  "files": {
+    "H.npy": "H.npy",
+    "H_int.npy": "H_int.npy",
+    "R_iot.npy": "R_iot.npy"
+  },
+  "modulations": {
+    "qpsk": {
+      "modulation_code": 0,
+      "mcs_table": 1,
+      "mcs_index": 4,
+      "num_bits_per_symbol": 2,
+      "target_coderate": 0.30078125,
+      "tb_size": 1416,
+      "working_point_db": {
+        "perfect": 13.631599239912667,
+        "ls_nn": 18.90348156316207,
+        "ls_lin": 17.608942455787094,
+        "ls_lin_time_avg": 16.656776396350956,
+        "lmmse_ce": 14.55783439498439
+      },
+      "working_point_status": {
+        "perfect": "ok",
+        "ls_nn": "ok",
+        "ls_lin": "ok",
+        "ls_lin_time_avg": "ok",
+        "lmmse_ce": "ok"
+      }
+    },
+    "qam16": {
+      "modulation_code": 1,
+      "mcs_table": 1,
+      "mcs_index": 14,
+      "num_bits_per_symbol": 4,
+      "target_coderate": 0.5400390625,
+      "tb_size": 4992,
+      "working_point_db": {
+        "perfect": 25.183800176304175,
+        "ls_nn": 28.313835583951974,
+        "ls_lin": 27.63658543731395,
+        "ls_lin_time_avg": 26.65407162893769,
+        "lmmse_ce": 25.808000594979788
+      },
+      "working_point_status": {
+        "perfect": "ok",
+        "ls_nn": "ok",
+        "ls_lin": "ok",
+        "ls_lin_time_avg": "ok",
+        "lmmse_ce": "ok"
+      }
+    },
+    "qam64": {
+      "modulation_code": 2,
+      "mcs_table": 1,
+      "mcs_index": 20,
+      "num_bits_per_symbol": 6,
+      "target_coderate": 0.5537109375,
+      "tb_size": 7680,
+      "working_point_db": {
+        "perfect": 30.602096041662936,
+        "ls_nn": 34.50715123102209,
+        "ls_lin": 33.23565114930935,
+        "ls_lin_time_avg": 32.417343816091794,
+        "lmmse_ce": 31.420677629379504
+      },
+      "working_point_status": {
+        "perfect": "ok",
+        "ls_nn": "ok",
+        "ls_lin": "ok",
+        "ls_lin_time_avg": "ok",
+        "lmmse_ce": "ok"
+      }
+    }
+  }
+}
