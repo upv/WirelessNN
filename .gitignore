@@ -4,10 +4,10 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
-results/
+results/*
+!results/*.png
 *.npy
 *.log
-*.png
 *.npz
 !models/**/*.npz
 *.json
