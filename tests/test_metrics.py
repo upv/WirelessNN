@@ -60,6 +60,7 @@ def test_ideal_mmse_uses_perfect_csi():
 def test_qam64_mcs_preset():
     cfg = SimConfig(modulation="qam64")
     assert cfg.resolved_mcs == (1, 20)
+    assert SimConfig(modulation="qpsk").resolved_mcs == (1, 5)
     assert "qam64" in cfg.summary()["modulation"]
 
 

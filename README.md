@@ -16,10 +16,10 @@ Link-level uplink simulator for 5G NR PUSCH, built on [NVIDIA Sionna](https://nv
 | IoT | 0 / 10 / 20 dB. **0 dB = no neighbouring-cell interference**; 10 and 20 dB are INR = I/N |
 | Waveform | NR PUSCH, DMRS **Type-1**, mapping type A |
 | Numerology | 30 kHz SCS, **68 PRB = 816 used subcarriers**, **FFT 1024** (104 + 104 guards), 17 RBG (size 4) |
-| Modulation | QPSK (MCS 4), 16QAM (MCS 14), 64QAM (MCS 20), all table 1 |
+| Modulation | QPSK (MCS 5, R≈0.37), 16QAM (MCS 14, R≈0.54), 64QAM (MCS 20, R≈0.55), all table 1. MCS 4 (R=0.30) would need LDPC BG1 repetition on a 68-PRB TB, which Sionna does not implement |
 | Receivers | MR (matched filter), L-MMSE (DMRS-LS), **Ideal MMSE** (perfect CSI), ZF, IRC |
-| CSI | DMRS-LS (NN / linear / linear+time-avg), LMMSE-CE (TDL prior), or perfect; Ideal MMSE always uses the true channel; `--perfect-csi` applies perfect CSI to every receiver |
-| Metrics | Coded BER and BLER after LDPC TB decoding; working point at BER = 0.01 |
+| CSI | DMRS-LS (NN / linear / linear+time-avg), LMMSE-CE (TDL prior), **LS + hard tap window**, **LS + soft (Wiener) tap window**, or perfect; Ideal MMSE always uses the true channel; `--perfect-csi` applies perfect CSI to every receiver |
+| Metrics | Coded BER and BLER after LDPC TB decoding; working points at BER = 0.01 and at BLER = 0.1 |
 
 DMRS Type-1 provides 4 ports with `length=1` and 8 ports with `length=2`. The simulator selects length 2 automatically when the total number of layers exceeds 4 (for example 4 UEs × rank 2).
 
@@ -33,7 +33,20 @@ Serving users are always inside the MIMO channel matrix `H`. Thermal noise is wh
 - **Ideal MMSE** — same L-MMSE combiner, but with **perfect CSI** (genie-aided lower bound).
 - **IRC** — MMSE with `S = R_iot + N0 I`, where `R_iot` is the spatial covariance of neighbouring-cell interference. That is the only receiver that can reject *coloured* inter-cell interference.
 
-IoT is generated as extra UEs through the same channel family, transmitting unit-power symbols on the used subcarriers. Their power is scaled so that the interference-to-noise ratio equals the requested IoT value. IRC can use the true interferer covariance (`--iot-cov perfect`, default) or a sample covariance of the received grid (`--iot-cov estimated`).
+IoT is generated as extra UEs through the same channel family, transmitting unit-power symbols on the used subcarriers. Their sum is scaled so that the **total** interference-to-noise ratio per receive antenna equals the requested IoT value, independent of the number of interferers and their antennas. IRC can use the true interferer covariance (`--iot-cov perfect`, default), the covariance of the DMRS residual `y − Ĥp` minus `N0 I` (`--iot-cov residual`, what a real receiver can measure), or the sample covariance of the whole received grid minus `N0 I` (`--iot-cov estimated`, contains the serving users' signal too).
+
+## Channel estimation
+
+| Name | Method |
+| --- | --- |
+| `perfect` | True channel (genie) |
+| `ls_nn`, `ls_lin`, `ls_lin_time_avg` | Sionna PUSCH LS with CDM/OCC despreading, nearest / linear / linear + time-average interpolation |
+| `lmmse_ce` | Sionna PUSCH LMMSE with a TDL time/frequency prior built from the scenario delay spread and speed. The TDL-B/C taps are the CDL-B/C cluster delays, so on CDL this is a **genie prior** (it knows the PDP); it collapses when the delay spread is 20 % off and is meaningless for UMi/UMa |
+| `lmmse_exp` | Same LMMSE with a smooth exponential-PDP frequency prior (RMS delay spread of the scenario for CDL, 1 µs for UMi/UMa, `--ce-lmmse-prior-ds-ns` to override) — the robust prior a real receiver would use |
+| `ls_hard_window` | LS at the DMRS, `M`-point IDFT of the 204 block estimates per DMRS symbol to the delay domain, taps outside `[-ce_window_neg_us, +ce_window_pos_us]` set to zero, `N`-point DFT back onto all 816 subcarriers, linear interpolation over OFDM symbols |
+| `ls_soft_window` | Same, but each tap is weighted by the Wiener gain `max(P_k − a·σ²_tap, 0) / P_k` with the tap power `P_k` averaged over receive antennas and DMRS symbols (`--ce-soft-threshold a`, `--ce-soft-within-window` to combine with the hard window) |
+
+Both windowed estimators report an error variance that includes the channel energy removed by the window, so the LLR scaling stays calibrated. The rectangular 24.5 MHz band leaks every path as `1/(πk)` over the taps, which bounds the hard window near −24 dB NMSE with the default 1 µs negative window; the soft window adapts to the SNR and wins below ~20 dB.
 
 ## Install
 
@@ -67,12 +80,13 @@ python -m nr_ul_sim \
   --snr-db -20:30:2 \
   --iot-db 0,10,20 \
   --receivers mr,lmmse,ideal_mmse,zf,irc \
-  --batch-size 2 \
-  --max-mc-iter 30 \
+  --estimators ls_lin \
+  --batch-size 8 \
+  --max-mc-iter 10 \
   --outdir results
 ```
 
-JSON results and a BER plot are written under `results/`. The plot marks the interpolated SNR where BER crosses 0.01.
+JSON results, BER/BLER plots and working-point bar charts are written under `results/`. The plots mark the interpolated SNR where BER crosses 0.01 and where BLER crosses 0.1. The full 68-PRB test matrix (every channel × modulation × receiver × IoT, plus the channel-estimator study) is `run_campaigns.sh`; `summarize_campaigns.py` turns its output into tables, and `physics_checks.py` measures every block of the simulator on its own (PDP and delay spread, time/frequency/spatial correlation, SNR and INR calibration, CE NMSE versus SNR).
 
 ## Python API
 
@@ -100,7 +114,7 @@ print(campaign["iot"]["10.0"]["irc"]["working_point_db"])
 `nr_ul_sim/dataset.py` builds a supervised dataset for learning the map **channel tensor → working point**. Each scenario draws random link parameters, **freezes one channel realization**, and searches the SNR where the coded BER of the chosen receiver(s) crosses `target_ber` for every channel estimator and modulation. The default sweep is **IRC** × {perfect, LS-NN, LS-linear, LS-lin+time-avg, LMMSE-CE} × {QPSK, 16QAM, 64QAM}. Freezing is what makes the label well posed: only data, noise and interferer symbols are redrawn between Monte-Carlo iterations, so the working point belongs to the stored tensor rather than to a channel ensemble (`--channel-mode ensemble` restores the usual per-slot redraw). Scalar features stored with each tensor include RMS, numerical/effective rank of `H`, and rank / condition / dominant-fraction of `R_uu`.
 
 ```bash
-python -m nr_ul_sim.dataset --num-samples 500 --outdir dataset/run1 --num-prb 8
+python -m nr_ul_sim.dataset --num-samples 500 --outdir dataset/run1 --num-prb 68
 ```
 
 or edit the knobs at the top of `make_dataset.py` and run `python make_dataset.py`.
@@ -161,13 +175,15 @@ The serving channel is normalized to unit average energy per resource element. N
 N0 = 10^(-SNR_dB / 10)
 ```
 
-so `SNR_dB` is the **per-antenna, per-RE** SNR of the serving link, independent of MCS. Other-cell IoT is set relative to this `N0`.
+so `SNR_dB` is the **per-antenna, per-RE** SNR of one serving UE, independent of MCS. A UE radiates unit power in total: with rank 2 each layer carries half of it (`--tx-power-norm per_layer` restores unit power per layer). With several co-scheduled UEs every UE arrives at that SNR. Other-cell IoT is the **total** interference power per antenna relative to this `N0`.
 
 ## Notes
 
 - Simulations run in the **frequency domain** (one tap per subcarrier). Time-domain CP/ISI modelling is not included.
 - UMi/UMa delay spread is a random variable of the 3GPP drop; `--delay-spread-ns` applies to CDL-B/C.
-- 68 PRB × 14 symbols is a full NR 25 MHz / 30 kHz allocation. Monte-Carlo at this bandwidth is computationally heavy; start with `--quick` or `--num-prb 16` while debugging.
+- 68 PRB × 14 symbols is a full NR 25 MHz / 30 kHz allocation and is the default everywhere (simulator, dataset, tests). One SNR point with 8 slots of 68 PRB takes about a second on an RTX-class GPU; start with `--quick` while debugging.
+- The gNB panel uses the 38.901 element pattern; it weights the CDL clusters by their angle of arrival, so the *effective* RMS delay spread at the receiver is smaller than the nominal CDL value (CDL-B 100 → ≈55 ns, CDL-C 300 → ≈70 ns). `physics_checks.py` reports both.
+- DMRS Type-1 OCC despreading averages two pilots 2 subcarriers apart; it attenuates a tap at delay `d` by `cos(2πd/N)` and, with two ports in one CDM group, leaks `(h₁(k) − h₁(k+2))/2` between the ports on a frequency-selective channel. Every DMRS estimator shares this.
 - Rank-2 with 4 UEs uses DMRS Type-1 length-2 (8 ports). Rank-1 with up to 4 UEs uses length-1.
 
 ## Tests
@@ -175,3 +191,5 @@ so `SNR_dB` is the **per-antenna, per-RE** SNR of the serving link, independent 
 ```bash
 python -m pytest tests
 ```
+
+`tests/test_physics.py` checks every block on its own at 68 PRB (TB size against 38.214, DMRS layout and power, channel energy, delay spread, Jakes time correlation, frequency and spatial correlation, noise and INR calibration, covariance estimators, receiver identities such as IRC ≡ L-MMSE without interference), `tests/test_windowed_ce.py` the delay-domain estimators, the rest the CLI, metrics, plots and the dataset builder.

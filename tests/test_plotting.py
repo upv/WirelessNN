@@ -63,5 +63,6 @@ def test_plot_working_points_writes_png(tmp_path: Path):
 
 def test_save_campaign_plots(tmp_path: Path):
     plots = save_campaign_plots(sample_campaign(), tmp_path, "demo")
-    assert [p.name for p in plots] == ["demo.png", "demo_working_points.png"]
+    assert [p.name for p in plots] == [
+        "demo.png", "demo_working_points.png", "demo_working_points_bler.png"]
     assert all(p.is_file() for p in plots)

@@ -17,8 +17,27 @@ RECEIVER_STYLE = {
     "ls_nn": dict(color="#4c78a8", marker="o", label="LS-NN"),
     "ls_lin": dict(color="#f58518", marker="s", label="LS-linear"),
     "ls_lin_time_avg": dict(color="#54a24b", marker="^", label="LS-lin + time avg"),
-    "lmmse_ce": dict(color="#b279a2", marker="D", label="LMMSE-CE"),
+    "lmmse_ce": dict(color="#b279a2", marker="D", label="LMMSE-CE (TDL prior)"),
+    "lmmse_exp": dict(color="#ff9da6", marker="d", label="LMMSE-CE (exp. prior)"),
+    "ls_hard_window": dict(color="#e45756", marker="v", label="LS + hard window"),
+    "ls_soft_window": dict(color="#72b7b2", marker="X", label="LS + soft window"),
 }
+WP_KEY = {"ber": "working_point_db", "bler": "working_point_bler_db"}
+TARGET_KEY = {"ber": "target_ber", "bler": "target_bler"}
+DEFAULT_TARGET = {"ber": 0.01, "bler": 0.1}
+
+
+def _style_for(name: str) -> dict:
+    if name in RECEIVER_STYLE:
+        return RECEIVER_STYLE[name]
+    # receiver_estimator keys of a joint sweep
+    for rx, style in RECEIVER_STYLE.items():
+        if name.startswith(rx + "_"):
+            est = name[len(rx) + 1 :]
+            est_style = RECEIVER_STYLE.get(est, {})
+            return dict(style, label=f"{style['label']} / {est_style.get('label', est)}",
+                        marker=est_style.get("marker", style["marker"]))
+    return dict(color="black", marker=".", label=name)
 
 
 def _title(cfg: dict[str, Any]) -> str:
@@ -29,16 +48,27 @@ def _title(cfg: dict[str, Any]) -> str:
     )
 
 
+def _curve_names(campaign: dict[str, Any]) -> list[str]:
+    seen: list[str] = []
+    for curves in campaign["iot"].values():
+        for name in curves:
+            if name not in seen:
+                seen.append(name)
+    return seen
+
+
 def _plot_metric(ax, curves: dict[str, Any], metric: str, mark_wp: bool) -> None:
-    for name, style in RECEIVER_STYLE.items():
-        if name not in curves or metric not in curves[name]:
-            continue
+    for name in curves:
         res = curves[name]
+        if metric not in res:
+            continue
+        style = _style_for(name)
         snr = np.asarray(res["snr_db"], dtype=float)
         values = np.clip(np.asarray(res[metric], dtype=float), 1e-12, 1)
         ax.semilogy(snr, values, **style)
-        if mark_wp and res.get("working_point_db") is not None:
-            ax.axvline(res["working_point_db"], color=style["color"], ls="--", lw=0.8, alpha=0.7)
+        wp = res.get(WP_KEY[metric])
+        if mark_wp and wp is not None:
+            ax.axvline(wp, color=style["color"], ls="--", lw=0.8, alpha=0.7)
 
 
 def _style_axis(ax, ylabel: str, iot: str, target: float | None) -> None:
@@ -48,7 +78,7 @@ def _style_axis(ax, ylabel: str, iot: str, target: float | None) -> None:
     ax.grid(True, which="both", ls=":", alpha=0.5)
     if target is not None:
         ax.axhline(target, color="grey", ls=":", lw=0.9, label=f"{ylabel}={target:g}")
-    ax.legend(loc="best", fontsize=8)
+    ax.legend(loc="best", fontsize=7)
 
 
 def plot_campaign(campaign: dict[str, Any], outfile: str | Path) -> Path:
@@ -57,13 +87,12 @@ def plot_campaign(campaign: dict[str, Any], outfile: str | Path) -> Path:
     cfg = campaign["config"]
     iot_levels = list(campaign["iot"])
     fig, axes = plt.subplots(2, len(iot_levels), figsize=(5.2 * len(iot_levels), 8.4), squeeze=False)
-    target = cfg.get("target_ber", 0.01)
     for col, iot in enumerate(iot_levels):
         curves = campaign["iot"][iot]
-        _plot_metric(axes[0, col], curves, "ber", mark_wp=True)
-        _style_axis(axes[0, col], "BER", iot, target)
-        _plot_metric(axes[1, col], curves, "bler", mark_wp=False)
-        _style_axis(axes[1, col], "BLER", iot, None)
+        for row, metric in enumerate(("ber", "bler")):
+            target = cfg.get(TARGET_KEY[metric], DEFAULT_TARGET[metric])
+            _plot_metric(axes[row, col], curves, metric, mark_wp=True)
+            _style_axis(axes[row, col], metric.upper(), iot, target)
     fig.suptitle(_title(cfg), fontsize=11)
     fig.tight_layout()
     fig.savefig(outfile, dpi=140)
@@ -71,21 +100,21 @@ def plot_campaign(campaign: dict[str, Any], outfile: str | Path) -> Path:
     return outfile
 
 
-def plot_working_points(campaign: dict[str, Any], outfile: str | Path) -> Path:
+def plot_working_points(campaign: dict[str, Any], outfile: str | Path, metric: str = "ber") -> Path:
     outfile = Path(outfile)
     outfile.parent.mkdir(parents=True, exist_ok=True)
     cfg = campaign["config"]
     iot_levels = list(campaign["iot"])
-    names = [n for n in RECEIVER_STYLE if any(n in campaign["iot"][iot] for iot in iot_levels)]
+    names = _curve_names(campaign)
     x = np.arange(len(iot_levels))
     n_rx = max(len(names), 1)
     width = 0.8 / n_rx
     fig, ax = plt.subplots(figsize=(max(6.4, 1.8 * len(iot_levels)), 4.8))
     for i, name in enumerate(names):
-        style = RECEIVER_STYLE[name]
+        style = _style_for(name)
         values = []
         for iot in iot_levels:
-            wp = campaign["iot"][iot].get(name, {}).get("working_point_db")
+            wp = campaign["iot"][iot].get(name, {}).get(WP_KEY[metric])
             values.append(float(wp) if wp is not None else np.nan)
         ax.bar(
             x + (i - (n_rx - 1) / 2) * width,
@@ -100,9 +129,10 @@ def plot_working_points(campaign: dict[str, Any], outfile: str | Path) -> Path:
     ax.set_xticklabels([f"{iot} dB" for iot in iot_levels])
     ax.set_xlabel("IoT")
     ax.set_ylabel("Working-point SNR [dB]")
-    ax.set_title(f"SNR where BER = {cfg.get('target_ber', 0.01):g}")
+    target = cfg.get(TARGET_KEY[metric], DEFAULT_TARGET[metric])
+    ax.set_title(f"SNR where {metric.upper()} = {target:g}")
     ax.grid(True, axis="y", ls=":", alpha=0.5)
-    ax.legend(loc="best", fontsize=8)
+    ax.legend(loc="best", fontsize=7)
     fig.suptitle(_title(cfg), fontsize=11)
     fig.tight_layout()
     fig.savefig(outfile, dpi=140)
@@ -116,4 +146,5 @@ def save_campaign_plots(campaign: dict[str, Any], outdir: str | Path, stem: str)
     return [
         plot_campaign(campaign, outdir / f"{stem}.png"),
         plot_working_points(campaign, outdir / f"{stem}_working_points.png"),
+        plot_working_points(campaign, outdir / f"{stem}_working_points_bler.png", metric="bler"),
     ]

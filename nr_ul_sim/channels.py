@@ -50,7 +50,7 @@ class IndependentLinkChannel(ChannelModel):
 def build_cdl_links(cfg: SimConfig, num_tx: int):
     from sionna.phy.channel.tr38901 import CDL
 
-    letter = {"cdl-b": "B", "cdl-c": "C"}[cfg.channel]
+    letter = {"cdl-b": "B", "cdl-c": "C", "cdl-d": "D"}[cfg.channel]
     ut_array = make_array(cfg.resolved_ue_ant, cfg.carrier_frequency, bs=False)
     bs_array = make_array(cfg.num_rx_ant, cfg.carrier_frequency, bs=True)
     speed = cfg.speed_mps

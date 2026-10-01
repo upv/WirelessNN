@@ -12,14 +12,26 @@ RECEIVER_ALIASES = {
     "perfect_mmse": "ideal_mmse",
     "mmse_perfect": "ideal_mmse",
 }
-CHANNELS = ("cdl-b", "cdl-c", "umi", "uma")
+CHANNELS = ("cdl-b", "cdl-c", "cdl-d", "umi", "uma")
 MODULATIONS = ("qpsk", "qam16", "qam64")
+# 38.214 table 5.1.3.1-1. QPSK uses index 5 (R = 379/1024): index 4 (R = 0.30)
+# selects LDPC base graph 1 for TBs above 3824 bits, and BG1 below rate 1/3
+# needs repetition, which Sionna does not implement.
 MCS_PRESETS = {
-    "qpsk": (1, 4),
-    "qam16": (1, 14),
-    "qam64": (1, 20),  # 64QAM, coderate ≈ 0.55 (table 1)
+    "qpsk": (1, 5),   # QPSK, coderate ≈ 0.37
+    "qam16": (1, 14),  # 16QAM, coderate ≈ 0.54
+    "qam64": (1, 20),  # 64QAM, coderate ≈ 0.55
 }
-CHANNEL_ESTIMATORS = ("perfect", "ls_nn", "ls_lin", "ls_lin_time_avg", "lmmse_ce")
+CHANNEL_ESTIMATORS = (
+    "perfect",
+    "ls_nn",
+    "ls_lin",
+    "ls_lin_time_avg",
+    "lmmse_ce",
+    "lmmse_exp",
+    "ls_hard_window",
+    "ls_soft_window",
+)
 CHANNEL_ESTIMATOR_ALIASES = {
     "ls": "ls_lin",
     "lin": "ls_lin",
@@ -28,13 +40,25 @@ CHANNEL_ESTIMATOR_ALIASES = {
     "nearest": "ls_nn",
     "lin_time_avg": "ls_lin_time_avg",
     "lmmse": "lmmse_ce",
+    "lmmse_tdl": "lmmse_ce",
+    "lmmse_robust": "lmmse_exp",
     "ideal": "perfect",
     "genie": "perfect",
     "true": "perfect",
+    "hard_window": "ls_hard_window",
+    "hard": "ls_hard_window",
+    "hw": "ls_hard_window",
+    "window": "ls_hard_window",
+    "soft_window": "ls_soft_window",
+    "soft": "ls_soft_window",
+    "sw": "ls_soft_window",
 }
+IOT_COV_METHODS = ("perfect", "estimated", "residual")
+TX_POWER_NORMS = ("per_ue", "per_layer")
 DEFAULT_DELAY_SPREAD = {
     "cdl-b": 100e-9,
     "cdl-c": 300e-9,
+    "cdl-d": 100e-9,
     "umi": 129e-9,
     "uma": 363e-9,
 }
@@ -133,6 +157,17 @@ class SimConfig:
     channel_estimators: tuple[str, ...] = ("ls_lin",)
     perfect_csi: bool = False
     iot_cov: str = "perfect"
+    # "per_ue": every UE radiates unit power in total, split over its layers, so
+    # the per-antenna SNR is the SNR of one UE. "per_layer": unit power per layer.
+    tx_power_norm: str = "per_ue"
+    # Delay-domain window of the ls_hard_window / ls_soft_window estimators
+    ce_window_pos_us: float = 3.0
+    ce_window_neg_us: float = 1.0
+    ce_soft_threshold: float = 1.5
+    ce_soft_within_window: bool = False
+    ce_time_interp: str = "linear"
+    # RMS delay spread of the exponential PDP prior of lmmse_exp [ns]; None -> scenario value
+    ce_lmmse_prior_ds_ns: float | None = None
     carrier_frequency: float = 3.5e9
     subcarrier_spacing_khz: float = 30.0
     num_prb: int = 68
@@ -145,7 +180,9 @@ class SimConfig:
     batch_size: int = 4
     max_mc_iter: int = 50
     num_target_bit_errors: int = 200
+    num_target_block_errors: int = 20
     target_ber: float = 0.01
+    target_bler: float = 0.1
     seed: int = 42
     o2i_model: str = "low"
     enable_pathloss: bool = False
@@ -155,6 +192,8 @@ class SimConfig:
         self.channel = self.channel.lower()
         self.modulation = self.modulation.lower()
         self.iot_cov = self.iot_cov.lower()
+        self.tx_power_norm = self.tx_power_norm.lower()
+        self.ce_time_interp = self.ce_time_interp.lower()
         self.receivers = tuple(canonicalize_receiver_name(r) for r in self.receivers)
         self.channel_estimators = tuple(
             canonicalize_estimator_name(e) for e in self.channel_estimators
@@ -172,8 +211,14 @@ class SimConfig:
             raise ValueError("num_layers (rank) must be 1 or 2")
         if self.num_rx_ant < 1:
             raise ValueError("num_rx_ant must be positive")
-        if self.iot_cov not in ("perfect", "estimated"):
-            raise ValueError("iot_cov must be 'perfect' or 'estimated'")
+        if self.iot_cov not in IOT_COV_METHODS:
+            raise ValueError(f"iot_cov must be one of {IOT_COV_METHODS}")
+        if self.tx_power_norm not in TX_POWER_NORMS:
+            raise ValueError(f"tx_power_norm must be one of {TX_POWER_NORMS}")
+        if self.ce_time_interp not in ("linear", "avg"):
+            raise ValueError("ce_time_interp must be 'linear' or 'avg'")
+        if self.ce_window_pos_us < 0 or self.ce_window_neg_us < 0:
+            raise ValueError("CE window lengths must be non-negative")
         unknown = [r for r in self.receivers if r not in RECEIVERS]
         if unknown:
             raise ValueError(f"Unknown receivers {unknown}; choose from {RECEIVERS}")
@@ -243,6 +288,17 @@ class SimConfig:
     def subcarrier_spacing(self) -> float:
         return float(self.subcarrier_spacing_khz) * 1e3
 
+    @property
+    def layer_power_scale(self) -> float:
+        """Amplitude scale applied to every layer of a UE (unit total UE power)."""
+        if self.tx_power_norm == "per_ue":
+            return 1.0 / float(self.num_layers) ** 0.5
+        return 1.0
+
+    @property
+    def num_interferer_streams(self) -> int:
+        return int(self.num_interferers) * int(self.resolved_ue_ant)
+
     def summary(self) -> dict[str, Any]:
         table, index = self.resolved_mcs
         left, right = self.guard_carriers
@@ -267,6 +323,13 @@ class SimConfig:
                 "perfect" if self.perfect_csi else ",".join(self.channel_estimators)
             ),
             "iot_cov": self.iot_cov,
+            "tx_power_norm": self.tx_power_norm,
+            "ce_window_pos_us": self.ce_window_pos_us,
+            "ce_window_neg_us": self.ce_window_neg_us,
+            "ce_soft_threshold": self.ce_soft_threshold,
+            "ce_soft_within_window": self.ce_soft_within_window,
+            "ce_time_interp": self.ce_time_interp,
+            "ce_lmmse_prior_ds_ns": self.ce_lmmse_prior_ds_ns,
             "carrier_frequency_hz": self.carrier_frequency,
             "subcarrier_spacing_khz": self.subcarrier_spacing_khz,
             "num_prb": self.num_prb,
@@ -279,5 +342,6 @@ class SimConfig:
             "dmrs_length": self.resolved_dmrs_length,
             "dmrs_additional_position": self.dmrs_additional_position,
             "target_ber": self.target_ber,
+            "target_bler": self.target_bler,
             "seed": self.seed,
         }

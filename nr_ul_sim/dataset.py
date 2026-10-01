@@ -95,7 +95,7 @@ class DatasetConfig:
     num_interferer_choices: tuple[int, ...] = (1, 2, 3)
 
     # --- link configuration ------------------------------------------------
-    num_prb: int = 8
+    num_prb: int = 68
     fft_size: int = 1024
     carrier_frequency: float = 3.5e9
     iot_cov: str = "perfect"
@@ -871,7 +871,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--num-prb", type=int, default=d.num_prb)
     p.add_argument("--fft-size", type=int, default=d.fft_size)
     p.add_argument("--carrier-ghz", type=float, default=d.carrier_frequency / 1e9)
-    p.add_argument("--iot-cov", default=d.iot_cov, choices=["perfect", "estimated"])
+    p.add_argument("--iot-cov", default=d.iot_cov, choices=["perfect", "estimated", "residual"])
     p.add_argument("--channel-mode", default=d.channel_mode, choices=["frozen", "ensemble"])
 
     p.add_argument("--target-ber", type=float, default=d.target_ber)

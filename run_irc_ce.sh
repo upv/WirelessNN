@@ -25,7 +25,7 @@ for k in $(seq 0 $((SHARDS - 1))); do
     --num-samples "$PER" --start-index $((k * PER)) --outdir "$dir" --seed 0 "${resume[@]}" \
     --channels cdl-b,cdl-c,umi,uma --modulations qpsk,qam16,qam64 --receivers irc \
     --estimators perfect,ls_nn,ls_lin,ls_lin_time_avg,lmmse_ce \
-    --num-prb 8 --fft-size 1024 --snr-min -20 --snr-max 40 \
+    --num-prb 68 --fft-size 1024 --snr-min -20 --snr-max 40 \
     --coarse-step 4 --refine-db 0.5 --batch-size 2 --max-mc-iter 10 \
     --num-target-bit-errors 200 --num-freq-bins 64 --num-symbol-bins 4 \
     >> "$OUT/shard$id.log" 2>&1 < /dev/null &

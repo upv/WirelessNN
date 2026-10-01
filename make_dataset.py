@@ -32,7 +32,7 @@ IOT_DB = (0.0, 20.0)       # uniform INR
 P_NO_IOT = 0.25            # share of scenarios with no other-cell interference
 NUM_INTERFERERS = (1, 2, 3)
 
-NUM_PRB = 8                # spec: 68; cost grows roughly linearly
+NUM_PRB = 68               # full 68-PRB allocation (816 subcarriers)
 FFT_SIZE = 1024
 CHANNEL_MODE = "frozen"    # frozen = label belongs to the stored tensor
 

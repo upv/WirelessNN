@@ -46,6 +46,7 @@ class SweepResult:
     bler: list[float] = field(default_factory=list)
     stats: list[dict] = field(default_factory=list)
     working_point_db: float | None = None
+    working_point_bler_db: float | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -54,11 +55,15 @@ class SweepResult:
             "bler": self.bler,
             "stats": self.stats,
             "working_point_db": self.working_point_db,
+            "working_point_bler_db": self.working_point_bler_db,
         }
 
 
 def working_point_snr(snr_db, ber, target: float = 0.01) -> float | None:
-    """SNR where BER crosses ``target`` (log-BER interpolation). None if never crossed."""
+    """SNR where a BER or BLER curve crosses ``target`` (log interpolation).
+
+    None if never crossed. Works for any monotone-in-expectation error rate.
+    """
     snr = np.asarray(snr_db, dtype=float)
     ber = np.clip(np.asarray(ber, dtype=float), 1e-12, 1.0)
     if snr.size == 0:

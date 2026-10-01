@@ -47,14 +47,27 @@ def _precoding_w(transmitter):
     return insert_dims(w, 2, 1)
 
 
-def effective_channel(h, guard_carriers, w=None):
-    """True H on used subcarriers, times codebook W if present."""
+def effective_channel(h, guard_carriers, w=None, scale: float = 1.0):
+    """True H on used subcarriers, times codebook W if present and the layer power scale."""
     h = strip_guard_subcarriers(h, guard_carriers)
-    if w is None:
-        return h
-    h = h.permute(0, 1, 3, 5, 6, 2, 4)
-    h = torch.matmul(h, w)
-    return h.permute(0, 1, 5, 2, 6, 3, 4)
+    if w is not None:
+        h = h.permute(0, 1, 3, 5, 6, 2, 4)
+        h = torch.matmul(h, w)
+        h = h.permute(0, 1, 5, 2, 6, 3, 4)
+    if scale != 1.0:
+        h = h * scale
+    return h
+
+
+def pilot_grid(pilot_pattern) -> torch.Tensor:
+    """DMRS symbols on the effective grid: [num_tx, num_streams, num_sym, num_sc]."""
+    mask = pilot_pattern.mask.cpu().numpy()
+    pilots = pilot_pattern.pilots.cpu().numpy()
+    grid = np.zeros(mask.shape, dtype=pilots.dtype)
+    for t in range(mask.shape[0]):
+        for s in range(mask.shape[1]):
+            grid[t, s][np.where(mask[t, s])] = pilots[t, s]
+    return torch.as_tensor(grid)
 
 
 class PuschRx:
@@ -66,6 +79,10 @@ class PuschRx:
         bits = int(bits.reshape(-1)[0] if hasattr(bits, "reshape") else bits)
         self.irc_eq = ExtraCovarianceLMMSE()
         self.w = _precoding_w(transmitter)
+        self.pilot_grid = pilot_grid(transmitter.pilot_pattern)
+        self.dmrs_syms = [
+            int(s) for s in np.where(self.pilot_grid[0, 0].abs().numpy().any(axis=1))[0]
+        ]
         self.estimators = {
             name: build_estimator(name, transmitter, cfg)
             for name in cfg.channel_estimators
@@ -94,7 +111,13 @@ class PuschRx:
             raise ValueError("perfect CSI is the true channel, not a DMRS estimator")
         if not torch.is_tensor(no):
             no = torch.tensor(no, device=y.device, dtype=y.real.dtype)
-        return estimator(y, no)
+        h_hat, err_var = estimator(y, no)
+        if name == "ls_lin_time_avg" and len(self.dmrs_syms) > 1:
+            # Sionna averages the estimates of all DMRS symbols but keeps the
+            # single-symbol error variance; the average of n independent
+            # estimates has 1/n of it.
+            err_var = err_var / len(self.dmrs_syms)
+        return h_hat, err_var
 
     def decode(self, y, h_hat, err_var, no, name: str):
         llr = self.detectors[name](y, h_hat, err_var, no)

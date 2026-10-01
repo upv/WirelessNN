@@ -85,6 +85,18 @@ def strip_guard_subcarriers(h, guard_carriers: tuple[int, int]):
 def build_transmitter(cfg: SimConfig):
     from sionna.phy.nr import PUSCHTransmitter
 
-    transmitter = PUSCHTransmitter(build_pusch_configs(cfg), output_domain="freq")
+    configs = build_pusch_configs(cfg)
+    try:
+        transmitter = PUSCHTransmitter(configs, output_domain="freq")
+    except ValueError as exc:
+        if "BG1" in str(exc) or "BG2" in str(exc):
+            table, index = cfg.resolved_mcs
+            raise ValueError(
+                f"MCS table {table} index {index} gives target coderate "
+                f"{configs[0].tb.target_coderate:.3f} for a {configs[0].tb_size}-bit TB, "
+                "which needs LDPC repetition (BG1 below rate 1/3 or BG2 below 1/5); "
+                "Sionna does not support it. Pick a higher --mcs-index or fewer PRBs."
+            ) from exc
+        raise
     pad_transmitter_fft(transmitter, cfg)
     return transmitter

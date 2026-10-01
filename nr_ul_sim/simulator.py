@@ -63,6 +63,23 @@ class NRUplinkSimulator:
             return build_system_level_channel(self.cfg)
         return build_cdl_links(self.cfg, num_tx)
 
+    def transmit(self, batch_size: int):
+        """PUSCH grid of every UE with the configured per-UE power normalisation."""
+        x, b = self.transmitter(batch_size)
+        scale = self.cfg.layer_power_scale
+        if scale != 1.0:
+            x = x * scale
+        return x, b
+
+    def interferer_grid(self, batch_size: int, like: torch.Tensor) -> torch.Tensor:
+        cfg = self.cfg
+        return random_ofdm_grid(
+            batch_size, cfg.num_interferers, cfg.resolved_ue_ant,
+            cfg.num_ofdm_symbols, cfg.fft_size,
+            dtype=like.real.dtype, device=like.device,
+            guard_carriers=cfg.guard_carriers,
+        )
+
     def generate_slot(self, batch_size: int, snr_db: float, iot_db: float):
         cfg = self.cfg
         if cfg.channel in ("umi", "uma"):
@@ -70,7 +87,7 @@ class NRUplinkSimulator:
             if iot_db > 0.0 and self.int_model is not None:
                 set_system_topology(self.int_model, cfg, batch_size, cfg.num_interferers)
 
-        x, b = self.transmitter(batch_size)
+        x, b = self.transmit(batch_size)
         no = snrdb_to_noise_var(snr_db)
 
         h_s = self.gen_serving(batch_size)
@@ -79,17 +96,11 @@ class NRUplinkSimulator:
         h_i = y_i = None
         if iot_db > 0.0 and self.gen_int is not None:
             h_i = self.gen_int(batch_size)
-            x_i = random_ofdm_grid(
-                batch_size, cfg.num_interferers, cfg.resolved_ue_ant,
-                cfg.num_ofdm_symbols, cfg.fft_size,
-                dtype=x.real.dtype, device=x.device,
-                guard_carriers=cfg.guard_carriers,
-            )
-            y_i = self.apply_channel(x_i, h_i)
+            y_i = self.apply_channel(self.interferer_grid(batch_size, x), h_i)
 
         return {
             "b": b,
-            "y": serving_plus_interference(y_s, y_i, no, iot_db),
+            "y": serving_plus_interference(y_s, y_i, no, iot_db, cfg.num_interferer_streams),
             "h": h_s,
             "h_int": h_i,
             "no": no,
@@ -98,6 +109,9 @@ class NRUplinkSimulator:
 
     def _keys(self) -> list[tuple[str, str, str]]:
         return detection_keys(self.cfg.receivers, self.cfg.channel_estimators)
+
+    def true_channel(self, h):
+        return effective_channel(h, self.cfg.guard_carriers, self.rx.w, self.cfg.layer_power_scale)
 
     def estimate_csi(self, slot: dict[str, Any]) -> None:
         y, no = slot["y"], slot["no"]
@@ -108,7 +122,7 @@ class NRUplinkSimulator:
             receiver_uses_perfect_csi(n, self.cfg.perfect_csi) for n in self.cfg.receivers
         )
         if need_perf:
-            slot["h_perf"] = effective_channel(slot["h"], self.cfg.guard_carriers, self.rx.w)
+            slot["h_perf"] = self.true_channel(slot["h"])
         slot["csi"] = {}
         default = None
         for name in self.cfg.channel_estimators:
@@ -128,14 +142,6 @@ class NRUplinkSimulator:
         if "csi" not in slot and "h_hat" not in slot:
             self.estimate_csi(slot)
         y, no = slot["y"], slot["no"]
-        if receiver_name == "irc":
-            self.rx.irc_eq.set_covariance(
-                irc_interference_covariance(
-                    slot["h_int"], y, no, slot["iot_db"], method=self.cfg.iot_cov
-                )
-            )
-        else:
-            self.rx.irc_eq.set_covariance(0.0)
 
         if estimator is None:
             estimator = self.cfg.channel_estimators[0]
@@ -144,16 +150,33 @@ class NRUplinkSimulator:
         )
         if use_true:
             if "h_perf" not in slot:
-                slot["h_perf"] = effective_channel(
-                    slot["h"], self.cfg.guard_carriers, self.rx.w
-                )
+                slot["h_perf"] = self.true_channel(slot["h"])
             h_hat = slot["h_perf"]
             err_var = torch.zeros((), dtype=h_hat.real.dtype, device=h_hat.device)
         elif "csi" in slot:
             h_hat, err_var = slot["csi"][estimator]
         else:
             h_hat, err_var = slot["h_hat"], slot["err_var"]
+
+        if receiver_name == "irc":
+            self.rx.irc_eq.set_covariance(
+                irc_interference_covariance(
+                    slot["h_int"], y, no, slot["iot_db"], method=self.cfg.iot_cov,
+                    h_hat=h_hat, pilot_grid=self.rx.pilot_grid, dmrs_syms=self.rx.dmrs_syms,
+                    guard_carriers=self.cfg.guard_carriers,
+                )
+            )
+        else:
+            self.rx.irc_eq.set_covariance(0.0)
         return self.rx.decode(y, h_hat, err_var, no, receiver_name)
+
+    def _enough_errors(self, stats: dict[str, ErrorStats]) -> bool:
+        cfg = self.cfg
+        return all(
+            s.bit_errors >= cfg.num_target_bit_errors
+            and s.block_errors >= cfg.num_target_block_errors
+            for s in stats.values()
+        )
 
     def measure_point(self, snr_db: float, iot_db: float) -> dict[str, ErrorStats]:
         """Monte-Carlo BER/BLER of every (receiver, estimator) at one (SNR, IoT) point."""
@@ -168,7 +191,7 @@ class NRUplinkSimulator:
                 stats[key].update(
                     b_np, self.detect(slot, receiver, estimator).detach().cpu().numpy()
                 )
-            if all(s.bit_errors >= cfg.num_target_bit_errors for s in stats.values()):
+            if self._enough_errors(stats):
                 break
         return stats
 
@@ -202,7 +225,7 @@ class NRUplinkSimulator:
             stats = self.measure_point(snr, iot_db)
             if verbose:
                 parts = [f"SNR {snr:6.1f} dB"]
-                parts += [f"{n} BER={s.ber:.3e}" for n, s in stats.items()]
+                parts += [f"{n} BER={s.ber:.3e} BLER={s.bler:.2e}" for n, s in stats.items()]
                 parts.append(f"[{time.time() - t_snr:.1f} s]")
                 print("  " + " | ".join(parts))
             for name, st in stats.items():
@@ -213,9 +236,14 @@ class NRUplinkSimulator:
         out = {}
         for name, res in results.items():
             res.working_point_db = working_point_snr(res.snr_db, res.ber, cfg.target_ber)
+            res.working_point_bler_db = working_point_snr(res.snr_db, res.bler, cfg.target_bler)
             out[name] = res.as_dict()
             if verbose:
-                wp = res.working_point_db
+                wp, wpb = res.working_point_db, res.working_point_bler_db
                 txt = f"{wp:.2f} dB" if wp is not None else "not reached"
-                print(f"  {name:12s} working point (BER={cfg.target_ber:g}): {txt}")
+                txtb = f"{wpb:.2f} dB" if wpb is not None else "not reached"
+                print(
+                    f"  {name:16s} working point BER={cfg.target_ber:g}: {txt:12s} "
+                    f"BLER={cfg.target_bler:g}: {txtb}"
+                )
         return out

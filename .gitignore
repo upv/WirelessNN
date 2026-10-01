@@ -15,6 +15,7 @@ results/*
 !**/dataset_config.json
 !models/**/*.json
 !nr_ul_sim/**
+nr_ul_sim/__pycache__/
 __pycache__/
 *.py[cod]
 .DS_Store
