@@ -1,0 +1,37 @@
+Working-point regression, round 2   (dataset/irc_ce10k)
+30000 records, 35 features (scenario+H), 5-fold GroupKFold by channel realisation
+
+=== target wp_lmmse_ce   n=28110   std=10.52 dB ===
+model                    RMSE    MAE     R2  p90|e|  <=1dB  <=2dB   fit s
+ridge_poly2              2.20   1.58   0.96    3.46   0.45   0.71    12.1
+ridge_poly3              2.35   1.67   0.95    3.73   0.44   0.69   742.9
+lgbm_tuned               2.24   1.61   0.95    3.62   0.45   0.70    91.5
+mlp_torch                2.50   1.79   0.94    4.02   0.42   0.66   441.0
+boosted_ridge            2.22   1.58   0.96    3.53   0.45   0.71    17.8
+blend_poly2_lgbm_mlp     2.17   1.55   0.96    3.46   0.46   0.72   496.4
+
+=== blend_poly2_lgbm_mlp on every channel estimator ===
+estimator               n   RMSE    MAE     R2  p90|e|  <=2dB
+perfect             29773   1.96   1.41   0.97    3.19   0.75
+ls_nn               27167   2.14   1.55   0.95    3.53   0.71
+ls_lin              28018   2.10   1.52   0.96    3.44   0.72
+ls_lin_time_avg     28166   2.05   1.49   0.96    3.34   0.73
+lmmse_ce            28110   2.17   1.55   0.96    3.46   0.72
+
+=== reachability classifier: P(working point never reached below snr_max) ===
+estimator            pos%    AUC    acc  brier
+perfect              0.76  0.996  0.995  0.005
+ls_nn                9.44  0.984  0.960  0.032
+ls_lin               6.61  0.985  0.969  0.026
+ls_lin_time_avg      6.11  0.986  0.971  0.023
+lmmse_ce             6.30  0.983  0.969  0.026
+
+=== blend_poly2_lgbm_mlp residual breakdown on wp_lmmse_ce ===
+group                   n   RMSE   bias
+qpsk                 9951   2.15  -0.00
+qam16                9486   2.24   0.01
+qam64                8673   2.12   0.05
+cdl-b                7406   1.84  -0.00
+cdl-c                7533   1.96   0.02
+umi                  6301   2.32   0.04
+uma                  6870   2.54   0.01
