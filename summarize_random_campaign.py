@@ -24,8 +24,10 @@ from pathlib import Path
 
 import numpy as np
 
-ESTIMATORS = ["perfect", "ls_nn", "ls_lin", "ls_lin_time_avg", "lmmse_ce", "lmmse_exp",
-              "ls_hard_window", "ls_soft_window"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from nr_ul_sim.parameters import CHANNEL_ESTIMATORS  # noqa: E402
+
+ESTIMATORS = list(CHANNEL_ESTIMATORS)  # estimators missing from a record are skipped
 BASE_KEYS = ["id", "seed", "channel", "num_ue", "rank", "num_layers_total", "modulation",
              "iot_db", "num_interferers", "num_prb", "num_rx_ant", "num_ue_ant",
              "prior_ds_ns", "prior_speed_kmh"]
@@ -79,6 +81,8 @@ def main(out: Path) -> int:
     if not recs:
         print("no records yet")
         return 0
+    global ESTIMATORS
+    ESTIMATORS = [n for n in ESTIMATORS if any(n in r["estimators"] for r in recs)]
 
     wide, long_rows = [], []
     for r in recs:

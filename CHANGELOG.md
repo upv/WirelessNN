@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026-10-05 — random-channel campaign with A-MMSE (5000 configurations, 16 PRB)
+
+Report: `~/reports/random_ch_ammse_2026-10-05/report/REPORT.md` on the new GPU server
+(RTX PRO 6000 Blackwell, outside the repository). Same plan and seeds as the 2026-09-30
+campaign, all 14 channel estimators, 3 workers, 9 h 16 min, no runtime errors.
+
+- `run_random_campaign.py --estimators` (default: all of `CHANNEL_ESTIMATORS`); the GPU
+  name goes into `campaign_config.json`.
+- `report_random_campaign.py`: estimators taken from the campaign, numbers in the key
+  conclusions computed from the data, an A-MMSE section (loss with censoring, A-MMSE
+  against every other estimator on the same configurations, breakdowns, scatter against
+  LMMSE with data covariance), `--compare` with an earlier campaign of the same plan,
+  `<campaign>/notes.md` as hand-written conclusions.
+- `summarize_random_campaign.py`: estimators taken from `CHANNEL_ESTIMATORS`.
+
+### Results
+
+Loss of the working point against perfect CSI, IRC, BER = 1e-2. "With censoring" counts a
+working point that was not found as infinite loss.
+
+| estimator | WP found | median, found only | median with censoring | p90 with censoring |
+|---|---|---|---|---|
+| LMMSE, TDL prior | 84 % | 0.63 dB | 0.83 dB | not found |
+| DenoiseNN | 90 % | 0.68 | 0.77 | not found |
+| LMMSE, exp prior | 92 % | 1.02 | 1.13 | 4.26 |
+| A-MMSE | 93 % | 1.19 | 1.29 | 5.98 |
+| LMMSE, data covariance | 96 % | 1.32 | 1.37 | 3.95 |
+| RA-A-MMSE r=6 | 86 % | 1.33 | 1.56 | not found |
+| LS-linear | 93 % | 2.59 | 2.75 | 5.57 |
+
+- A-MMSE matches its closed-form limit, LMMSE with data covariance: within ±0.25 dB in
+  50 % of configurations, median difference −0.03 dB, as the paper says.
+- Its tail is heavier: no working point in 7.1 % of configurations against 3.9 %, and a
+  median loss of 15.4 dB for delay spread above 1000 ns. The filter is learned on UMa;
+  the filter bank needs a delay-spread dimension or channels with larger spread.
+- A-MMSE is 1.2 dB better than LS-linear and 0.55 dB better than the soft window, on par
+  with LMMSE exp prior, 0.3 dB behind DenoiseNN and the matched TDL prior.
+- RA-A-MMSE with rank 6 is not enough at high SNR: 14 % without a working point, 5.6 dB
+  median loss at 2 UE × rank 2.
+- Common estimators reproduce the 2026-09-30 campaign: median |ΔWP| 0.05–0.08 dB, no bias.
+
 ## 2026-10-05 — channel estimators from EqDeepRx and A-MMSE
 
 Papers: EqDeepRx (arXiv:2602.11834) and A-MMSE (arXiv:2506.00452). Report with all tables:

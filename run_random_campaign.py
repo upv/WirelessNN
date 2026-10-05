@@ -59,6 +59,12 @@ def done_ids(out: Path) -> set[int]:
     return ids
 
 
+def _gpu_name() -> str:
+    import torch
+
+    return torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
+
+
 def load_plan(out: Path) -> list[dict]:
     with open(out / "plan.jsonl") as fh:
         return [json.loads(line) for line in fh if line.strip()]
@@ -84,6 +90,7 @@ def write_plan(args, out: Path) -> None:
         "args": vars(args),
         "num_configs": len(rows),
         "channels": channels,
+        "gpu": _gpu_name(),
         "receiver": "irc",
         "estimators": args.estimators.split(","),
         "iot_cov": "perfect",
