@@ -1,3 +1,10 @@
+"""Command line of the link simulator: ``python -m nr_ul_sim [options]``.
+
+Parses the options into a :class:`~nr_ul_sim.parameters.SimConfig`, runs the
+sweep and saves the campaign JSON and figures. ``--help`` lists every option,
+``--list`` everything that can be simulated.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -8,8 +15,16 @@ from datetime import datetime
 from pathlib import Path
 
 from .parameters import (
+    CHANNEL_ESTIMATOR_ALIASES,
     CHANNEL_ESTIMATORS,
+    CHANNEL_INFO,
+    CHANNELS,
+    ESTIMATOR_INFO,
+    IOT_COV_INFO,
     IOT_COV_METHODS,
+    MCS_PRESETS,
+    MODULATIONS,
+    RECEIVER_INFO,
     RECEIVERS,
     TX_POWER_NORMS,
     SimConfig,
@@ -30,6 +45,7 @@ _SIGNED_VALUE_OPTIONS = {
 
 
 def join_signed_values(argv: list[str]) -> list[str]:
+    """Turn ``--snr-db -20:30:2`` into ``--snr-db=-20:30:2`` so argparse accepts it."""
     out: list[str] = []
     skip = False
     for i, arg in enumerate(argv):
@@ -45,56 +61,126 @@ def join_signed_values(argv: list[str]) -> list[str]:
     return out
 
 
+EXAMPLES = """\
+examples:
+  python -m nr_ul_sim --quick                                   few-second smoke run
+  python -m nr_ul_sim --list                                    what can be simulated
+  python -m nr_ul_sim --channel cdl-c --num-ue 2 --modulation qam16 \\
+      --snr-db -6:26:2 --iot-db 0,10 --receivers lmmse,irc --estimators ls_lin
+  python -m nr_ul_sim --channel uma --receivers irc \\
+      --estimators perfect,ls_lin,lmmse_exp,ls_soft_window        channel-estimator study
+
+Results (JSON + BER/BLER and working-point figures) go to --outdir.
+docs/TUTORIAL.md walks through everything.
+"""
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="5G NR PUSCH uplink BER (Sionna)")
-    p.add_argument("--channel", default="cdl-c", choices=["cdl-b", "cdl-c", "cdl-d", "umi", "uma"])
-    p.add_argument("--delay-spread-ns", type=float, default=None, help="CDL RMS delay spread [ns]")
-    p.add_argument("--num-ue", type=int, default=1)
-    p.add_argument("--num-rx-ant", type=int, default=4)
-    p.add_argument("--num-ue-ant", type=int, default=None, help="UE ports 1/2/4; default from rank")
-    p.add_argument("--rank", type=int, default=1, dest="num_layers")
-    p.add_argument("--speed-kmh", type=float, default=3.0)
-    p.add_argument("--snr-db", default="-20:30:2", help="Comma list or start:stop:step")
-    p.add_argument("--iot-db", default="0,10,20", help="INR dB; 0 = no interferer")
-    p.add_argument("--num-interferers", type=int, default=2)
-    p.add_argument("--modulation", default="qpsk", choices=["qpsk", "qam16", "qam64"])
-    p.add_argument("--mcs-index", type=int, default=None)
-    p.add_argument("--mcs-table", type=int, default=None)
-    p.add_argument("--receivers", default="mr,lmmse,ideal_mmse,zf,irc")
-    p.add_argument("--estimators", default="ls_lin", dest="channel_estimators",
-                   help="Comma list: " + ",".join(CHANNEL_ESTIMATORS))
-    p.add_argument("--perfect-csi", action="store_true")
-    p.add_argument("--iot-cov", default="perfect", choices=list(IOT_COV_METHODS))
-    p.add_argument("--tx-power-norm", default="per_ue", choices=list(TX_POWER_NORMS),
-                   help="per_ue: unit total power per UE; per_layer: unit power per layer")
-    p.add_argument("--ce-window-pos-us", type=float, default=3.0,
-                   help="Delay-domain window after the first tap [us] (windowed CE)")
-    p.add_argument("--ce-window-neg-us", type=float, default=1.0,
-                   help="Delay-domain window before the first tap [us] (windowed CE)")
-    p.add_argument("--ce-soft-threshold", type=float, default=1.5,
-                   help="Soft window: tap kept when its power exceeds this multiple of the noise")
-    p.add_argument("--ce-soft-within-window", action="store_true",
-                   help="Soft window: also zero every tap outside the hard window")
-    p.add_argument("--ce-time-interp", default="linear", choices=["linear", "avg"])
-    p.add_argument("--ce-model-dir", default=None,
-                   help="Trained paper estimators (default: models/paper_ce)")
-    p.add_argument("--incm-band-sc", type=int, default=24,
-                   help="Subcarriers per INCM band for --iot-cov incm_oas")
-    p.add_argument("--ce-lmmse-prior-ds-ns", type=float, default=None,
-                   help="RMS delay spread of the exponential-PDP prior of lmmse_exp (default: scenario value)")
-    p.add_argument("--carrier-ghz", type=float, default=3.5)
-    p.add_argument("--num-prb", type=int, default=68)
-    p.add_argument("--fft-size", type=int, default=1024)
-    p.add_argument("--batch-size", type=int, default=2)
-    p.add_argument("--max-mc-iter", type=int, default=20)
-    p.add_argument("--num-target-bit-errors", type=int, default=200)
-    p.add_argument("--num-target-block-errors", type=int, default=20)
-    p.add_argument("--target-ber", type=float, default=0.01)
-    p.add_argument("--target-bler", type=float, default=0.1)
+    p = argparse.ArgumentParser(
+        prog="python -m nr_ul_sim",
+        description="5G NR PUSCH uplink link-level simulation (Sionna): BER/BLER versus SNR "
+                    "and the working point of every receiver and channel estimator.",
+        epilog=EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("--list", action="store_true",
+                   help="Print the channels, modulations, receivers and estimators, then exit")
+    p.add_argument("--quick", action="store_true",
+                   help="Tiny smoke run: 8 PRB, SNR -10/0/10 dB, no IoT, 2 slots per point")
+    p.add_argument("--outdir", default="results", help="Where the JSON and figures go")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--outdir", default="results")
-    p.add_argument("--quick", action="store_true", help="Tiny smoke run")
+
+    g = p.add_argument_group("scenario")
+    g.add_argument("--channel", default="cdl-c", choices=list(CHANNELS))
+    g.add_argument("--delay-spread-ns", type=float, default=None,
+                   help="CDL RMS delay spread [ns] (UMi/UMa draw their own)")
+    g.add_argument("--num-ue", type=int, default=1, help="Co-scheduled UEs, 1-4")
+    g.add_argument("--rank", type=int, default=1, dest="num_layers", help="Layers per UE, 1-2")
+    g.add_argument("--num-rx-ant", type=int, default=4, help="gNB antennas: 1, 2, 4 or 8")
+    g.add_argument("--num-ue-ant", type=int, default=None, help="UE ports 1/2/4; default from rank")
+    g.add_argument("--speed-kmh", type=float, default=3.0)
+    g.add_argument("--tx-power-norm", default="per_ue", choices=list(TX_POWER_NORMS),
+                   help="per_ue: unit total power per UE; per_layer: unit power per layer")
+
+    g = p.add_argument_group("sweep")
+    g.add_argument("--snr-db", default="-20:30:2",
+                   help="Per-antenna SNR [dB]: comma list or start:stop:step")
+    g.add_argument("--iot-db", default="0,10,20",
+                   help="Other-cell interference over thermal [dB], comma list; 0 = no interferer")
+    g.add_argument("--num-interferers", type=int, default=2,
+                   help="Interfering UEs sharing the IoT power")
+
+    g = p.add_argument_group("modulation and coding")
+    g.add_argument("--modulation", default="qpsk", choices=list(MODULATIONS),
+                   help="Selects a preset MCS (see --list)")
+    g.add_argument("--mcs-index", type=int, default=None, help="Override the preset MCS index")
+    g.add_argument("--mcs-table", type=int, default=None, help="Override the preset MCS table")
+
+    g = p.add_argument_group("receiver")
+    g.add_argument("--receivers", default="mr,lmmse,ideal_mmse,zf,irc",
+                   help="Comma list: " + ",".join(RECEIVERS))
+    g.add_argument("--estimators", default="ls_lin", dest="channel_estimators",
+                   help="Comma list: " + ",".join(CHANNEL_ESTIMATORS))
+    g.add_argument("--perfect-csi", action="store_true",
+                   help="Give every receiver the true channel")
+    g.add_argument("--iot-cov", default="perfect", choices=list(IOT_COV_METHODS),
+                   help="Interference covariance used by IRC")
+    g.add_argument("--incm-band-sc", type=int, default=24,
+                   help="Subcarriers per INCM band for --iot-cov incm_oas")
+
+    g = p.add_argument_group("channel-estimator options")
+    g.add_argument("--ce-window-pos-us", type=float, default=3.0,
+                   help="Delay-domain window after the first tap [us] (windowed CE)")
+    g.add_argument("--ce-window-neg-us", type=float, default=1.0,
+                   help="Delay-domain window before the first tap [us] (windowed CE)")
+    g.add_argument("--ce-soft-threshold", type=float, default=1.5,
+                   help="Soft window: tap kept when its power exceeds this multiple of the noise")
+    g.add_argument("--ce-soft-within-window", action="store_true",
+                   help="Soft window: also zero every tap outside the hard window")
+    g.add_argument("--ce-time-interp", default="linear", choices=["linear", "avg"],
+                   help="Windowed CE: interpolation over OFDM symbols")
+    g.add_argument("--ce-lmmse-prior-ds-ns", type=float, default=None,
+                   help="RMS delay spread of the exponential-PDP prior of lmmse_exp (default: scenario value)")
+    g.add_argument("--ce-model-dir", default=None,
+                   help="Trained paper estimators (default: models/paper_ce)")
+
+    g = p.add_argument_group("carrier and resource grid")
+    g.add_argument("--carrier-ghz", type=float, default=3.5)
+    g.add_argument("--num-prb", type=int, default=68, help="Allocated PRBs (68 = 25 MHz at 30 kHz)")
+    g.add_argument("--fft-size", type=int, default=1024)
+
+    g = p.add_argument_group(
+        "Monte Carlo",
+        "An SNR point stops when every curve reached both error targets, or at --max-mc-iter.")
+    g.add_argument("--batch-size", type=int, default=2, help="Slots per iteration")
+    g.add_argument("--max-mc-iter", type=int, default=20, help="Iterations per SNR point at most")
+    g.add_argument("--num-target-bit-errors", type=int, default=200)
+    g.add_argument("--num-target-block-errors", type=int, default=20)
+    g.add_argument("--target-ber", type=float, default=0.01, help="BER of the working point")
+    g.add_argument("--target-bler", type=float, default=0.1, help="BLER of the BLER working point")
     return p
+
+
+def describe_options() -> str:
+    """Text of ``--list``: everything that can be simulated, one line each."""
+    def block(title: str, info: dict[str, str]) -> list[str]:
+        width = max(len(k) for k in info)
+        return [title] + [f"  {k:{width}s}  {v}" for k, v in info.items()] + [""]
+
+    mcs = {
+        m: f"MCS table {t}, index {i}" for m, (t, i) in MCS_PRESETS.items()
+    }
+    aliases = {v: [] for v in CHANNEL_ESTIMATORS}
+    for alias, name in CHANNEL_ESTIMATOR_ALIASES.items():
+        aliases[name].append(alias)
+    lines = block("Channels (--channel)", CHANNEL_INFO)
+    lines += block("Modulations (--modulation)", mcs)
+    lines += block("Receivers (--receivers)", RECEIVER_INFO)
+    lines += block("Channel estimators (--estimators)", ESTIMATOR_INFO)
+    lines += block("IRC interference covariance (--iot-cov)", IOT_COV_INFO)
+    lines.append("Estimator aliases: " + "; ".join(
+        f"{name} = {', '.join(a)}" for name, a in aliases.items() if a))
+    return "\n".join(lines)
 
 
 def config_from_args(args: argparse.Namespace) -> SimConfig:
@@ -162,6 +248,7 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
 
 
 def save_campaign(campaign: dict, outdir: Path) -> tuple[Path, list[Path]]:
+    """Write ``<channel>_<modulation>_ue<N>_r<rank>_<timestamp>.json`` and its figures."""
     outdir.mkdir(parents=True, exist_ok=True)
     cfg = campaign["config"]
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -174,6 +261,9 @@ def save_campaign(campaign: dict, outdir: Path) -> tuple[Path, list[Path]]:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     args = build_parser().parse_args(join_signed_values(argv))
+    if args.list:
+        print(describe_options())
+        return 0
     cfg = config_from_args(args)
     print("NR PUSCH uplink simulation")
     for key, value in cfg.summary().items():

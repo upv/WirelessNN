@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Collect the campaign JSONs written by run_campaigns.sh into tables and figures.
+"""Collect the campaign JSONs written by run_campaigns.sh / run_paper_ce_campaign.sh into tables and figures.
 
-    .venv/bin/python summarize_campaigns.py /root/reports/x/campaigns
+    .venv/bin/python scripts/campaigns/summarize_campaigns.py /root/reports/x/campaigns
 """
 
 from __future__ import annotations
@@ -16,6 +16,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.plotting import RECEIVER_STYLE
 

@@ -24,7 +24,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from .interference import irc_interference_covariance, serving_plus_interference
+from .interference import irc_interference_covariance
 from .parameters import CHANNEL_ESTIMATORS, MODULATIONS, SimConfig, snrdb_to_noise_var
 from .random_channels import (
     CDL_LETTER,
@@ -93,23 +93,8 @@ class RandomChannelSimulator(NRUplinkSimulator):
     def _make_model(self, num_tx: int):
         return self._prebuilt.pop(0)
 
-    def generate_slot(self, batch_size: int, snr_db: float, iot_db: float):
-        x, b = self.transmit(batch_size)
-        no = snrdb_to_noise_var(snr_db)
-        h_s = self.gen_serving(batch_size)
-        y_s = self.apply_channel(x, h_s)
-        h_i = y_i = None
-        if iot_db > 0.0 and self.gen_int is not None:
-            h_i = self.gen_int(batch_size)
-            y_i = self.apply_channel(self.interferer_grid(batch_size, x), h_i)
-        return {
-            "b": b,
-            "y": serving_plus_interference(y_s, y_i, no, iot_db, self.cfg.num_interferer_streams),
-            "h": h_s,
-            "h_int": h_i,
-            "no": no,
-            "iot_db": iot_db,
-        }
+    def _draw_topology(self, batch_size: int, iot_db: float) -> None:
+        """The drop is fixed for the whole configuration: nothing to redraw."""
 
 
 def _f(x) -> float:

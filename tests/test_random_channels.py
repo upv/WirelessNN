@@ -105,7 +105,7 @@ def test_parse_estimators():
         parse_estimators("ls_lin,nope")
 
 
-@pytest.mark.skipif(not (DEFAULT_MODEL_DIR / "a_mmse.pt").exists(), reason="run train_paper_ce.py first")
+@pytest.mark.skipif(not (DEFAULT_MODEL_DIR / "a_mmse.pt").exists(), reason="run scripts/training/train_paper_ce.py first")
 @pytest.mark.parametrize("channel,num_ue,rank", [("cdl-c", 1, 1), ("uma", 2, 2)])
 def test_run_config_with_a_mmse(channel, num_ue, rank):
     row = {"id": 0, "seed": 7, "channel": channel, "num_ue": num_ue, "rank": rank, "modulation": "qpsk"}

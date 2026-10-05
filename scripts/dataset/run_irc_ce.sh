@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # IRC x 5 channel estimators x QPSK/16QAM/64QAM, 20 single-thread shards.
-#   ./run_irc_ce.sh            start (or continue: shards are resumable)
-#   ./run_irc_ce.sh merge      merge finished shards into $OUT
-#   TOTAL=20000 OUT=dataset/irc_ce20k ./run_irc_ce.sh
+#   scripts/dataset/run_irc_ce.sh            start (or continue: shards are resumable)
+#   scripts/dataset/run_irc_ce.sh merge      merge finished shards into $OUT
+#   TOTAL=20000 OUT=dataset/irc_ce20k scripts/dataset/run_irc_ce.sh
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."   # repository root
 
 TOTAL=${TOTAL:-10000}
 OUT=${OUT:-dataset/irc_ce10k}
@@ -12,7 +12,7 @@ SHARDS=${SHARDS:-20}
 PER=$((TOTAL / SHARDS))
 
 if [[ "${1:-}" == "merge" ]]; then
-  exec .venv/bin/python merge_shards.py "$OUT" "$OUT"/shards/s*
+  exec .venv/bin/python scripts/dataset/merge_shards.py "$OUT" "$OUT"/shards/s*
 fi
 
 mkdir -p "$OUT/shards"

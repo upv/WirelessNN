@@ -1,3 +1,5 @@
+# Simulator only. Everything, including analysis and tests: scripts/setup_env.sh
+# (= pip install -e ".[analysis,dev]").
 sionna>=2.0.0
 torch
 numpy

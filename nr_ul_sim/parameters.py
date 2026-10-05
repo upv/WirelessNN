@@ -1,3 +1,12 @@
+"""Simulation configuration: the names the simulator understands and ``SimConfig``.
+
+Everything a run depends on is a field of :class:`SimConfig`; the command line
+(:mod:`nr_ul_sim.cli`) maps onto it one to one. The tuples at the top are the
+single source of truth for the allowed channels, modulations, receivers and
+channel estimators — the CLI choices, the validation below and ``--list`` all
+read them.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,7 +21,21 @@ RECEIVER_ALIASES = {
     "perfect_mmse": "ideal_mmse",
     "mmse_perfect": "ideal_mmse",
 }
+RECEIVER_INFO = {
+    "mr": "matched filter (maximum ratio); ignores all interference",
+    "lmmse": "MMSE with S = N0 I; other-cell interference treated as white noise",
+    "ideal_mmse": "the lmmse combiner with the true channel (genie bound)",
+    "zf": "zero forcing among the co-scheduled layers",
+    "irc": "MMSE with S = R_iot + N0 I; rejects coloured other-cell interference",
+}
 CHANNELS = ("cdl-b", "cdl-c", "cdl-d", "umi", "uma")
+CHANNEL_INFO = {
+    "cdl-b": "3GPP CDL-B, NLoS clusters, default RMS delay spread 100 ns",
+    "cdl-c": "3GPP CDL-C, NLoS clusters, default RMS delay spread 300 ns",
+    "cdl-d": "3GPP CDL-D, LoS + clusters, default RMS delay spread 100 ns",
+    "umi": "3GPP 38.901 urban micro drop; delay spread drawn per drop",
+    "uma": "3GPP 38.901 urban macro drop; delay spread drawn per drop",
+}
 MODULATIONS = ("qpsk", "qam16", "qam64")
 # 38.214 table 5.1.3.1-1. QPSK uses index 5 (R = 379/1024): index 4 (R = 0.30)
 # selects LDPC base graph 1 for TBs above 3824 bits, and BG1 below rate 1/3
@@ -38,6 +61,22 @@ CHANNEL_ESTIMATORS = (
     "a_mmse",
     "ra_a_mmse",
 )
+ESTIMATOR_INFO = {
+    "perfect": "true channel (genie)",
+    "ls_nn": "DMRS least squares, nearest-neighbour interpolation",
+    "ls_lin": "DMRS least squares, linear interpolation",
+    "ls_lin_time_avg": "DMRS least squares, linear in frequency, averaged over the DMRS symbols",
+    "lmmse_ce": "LMMSE with a TDL prior matched to the scenario (genie prior on CDL)",
+    "lmmse_exp": "LMMSE with an exponential-PDP prior (robust, realistic)",
+    "ls_hard_window": "LS denoised by a rectangular window in the delay domain",
+    "ls_soft_window": "LS denoised by per-tap Wiener weights in the delay domain",
+    "ls_fir": "LS + static 17-tap frequency FIR (EqDeepRx baseline)",
+    "denoise_nn": "EqDeepRx DenoiseNN [trained]",
+    "lmmse_data": "2D LMMSE with a covariance measured on training channels [trained]",
+    "lmmse_data_1d": "1D (frequency) LMMSE with the measured covariance [trained]",
+    "a_mmse": "A-MMSE: attention-learned fixed linear filters [trained]",
+    "ra_a_mmse": "rank-adaptive A-MMSE, rank 6 [trained]",
+}
 # estimators that need trained weights / statistics from ce_model_dir
 LEARNED_ESTIMATORS = ("denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse")
 CHANNEL_ESTIMATOR_ALIASES = {
@@ -62,6 +101,12 @@ CHANNEL_ESTIMATOR_ALIASES = {
     "sw": "ls_soft_window",
 }
 IOT_COV_METHODS = ("perfect", "estimated", "residual", "incm_oas")
+IOT_COV_INFO = {
+    "perfect": "true interferer channels (genie)",
+    "estimated": "sample covariance of the whole received grid minus N0 I (includes the serving signal)",
+    "residual": "covariance of the DMRS residual y - H_hat p minus N0 I, wideband",
+    "incm_oas": "DMRS residual covariance per band with OAS shrinkage (EqDeepRx), per subcarrier",
+}
 TX_POWER_NORMS = ("per_ue", "per_layer")
 DEFAULT_DELAY_SPREAD = {
     "cdl-b": 100e-9,
@@ -148,23 +193,35 @@ def parse_csv_floats(text: str) -> list[float]:
 
 @dataclass
 class SimConfig:
-    channel: str = "cdl-c"
-    delay_spread_ns: float | None = None
-    num_ue: int = 1
-    num_rx_ant: int = 4
-    num_ue_ant: int | None = None
-    num_layers: int = 1
+    """One link-level scenario and how to simulate it.
+
+    SNR is per receive antenna and resource element for one UE (the channel has
+    unit mean energy, ``N0 = 10^(-SNR/10)``). IoT is the total other-cell
+    interference power per antenna relative to ``N0``; ``0`` means none.
+    Invalid values raise ``ValueError`` on construction.
+    """
+
+    # --- scenario ------------------------------------------------------------
+    channel: str = "cdl-c"                 # one of CHANNELS
+    delay_spread_ns: float | None = None   # CDL RMS delay spread; None -> DEFAULT_DELAY_SPREAD
+    num_ue: int = 1                        # co-scheduled UEs, 1..4
+    num_rx_ant: int = 4                    # gNB antennas: 1, 2, 4 or 8
+    num_ue_ant: int | None = None          # UE antenna ports 1/2/4; None -> equal to the rank
+    num_layers: int = 1                    # rank per UE, 1..2
     speed_kmh: float = 3.0
+    # --- sweep ---------------------------------------------------------------
     snr_db: list[float] = field(default_factory=lambda: list(range(-20, 31, 2)))
-    iot_db: list[float] = field(default_factory=lambda: [0.0])
-    num_interferers: int = 2
-    modulation: str = "qpsk"
-    mcs_table: int | None = None
-    mcs_index: int | None = None
+    iot_db: list[float] = field(default_factory=lambda: [0.0])   # one SNR sweep per value
+    num_interferers: int = 2               # interfering UEs sharing the IoT power
+    # --- modulation and coding -------------------------------------------------
+    modulation: str = "qpsk"               # one of MODULATIONS; selects MCS_PRESETS
+    mcs_table: int | None = None           # override the preset table ...
+    mcs_index: int | None = None           # ... and index (38.214 5.1.3.1)
+    # --- receiver --------------------------------------------------------------
     receivers: tuple[str, ...] = RECEIVERS
     channel_estimators: tuple[str, ...] = ("ls_lin",)
-    perfect_csi: bool = False
-    iot_cov: str = "perfect"
+    perfect_csi: bool = False              # True: every receiver gets the true channel
+    iot_cov: str = "perfect"               # one of IOT_COV_METHODS (IRC only)
     # "per_ue": every UE radiates unit power in total, split over its layers, so
     # the per-antenna SNR is the SNR of one UE. "per_layer": unit power per layer.
     tx_power_norm: str = "per_ue"
@@ -180,7 +237,8 @@ class SimConfig:
     ce_model_dir: str | None = None
     # INCM estimation band of --iot-cov incm_oas [subcarriers] (EqDeepRx: 2 PRB)
     incm_band_sc: int = 24
-    carrier_frequency: float = 3.5e9
+    # --- carrier and resource grid ---------------------------------------------
+    carrier_frequency: float = 3.5e9       # [Hz]
     subcarrier_spacing_khz: float = 30.0
     num_prb: int = 68
     fft_size: int = 1024
@@ -189,13 +247,16 @@ class SimConfig:
     dmrs_additional_position: int = 1
     dmrs_length: int | None = None
     num_cdm_groups_without_data: int = 2
-    batch_size: int = 4
+    # --- Monte Carlo -------------------------------------------------------------
+    # An SNR point stops when every curve has both error targets, or at max_mc_iter.
+    batch_size: int = 4                    # slots per iteration
     max_mc_iter: int = 50
     num_target_bit_errors: int = 200
     num_target_block_errors: int = 20
-    target_ber: float = 0.01
-    target_bler: float = 0.1
+    target_ber: float = 0.01               # working point: SNR where BER crosses this
+    target_bler: float = 0.1               # BLER working point
     seed: int = 42
+    # --- UMi / UMa drops -----------------------------------------------------------
     o2i_model: str = "low"
     enable_pathloss: bool = False
     enable_shadow_fading: bool = False
@@ -312,6 +373,7 @@ class SimConfig:
         return int(self.num_interferers) * int(self.resolved_ue_ant)
 
     def summary(self) -> dict[str, Any]:
+        """Resolved configuration, stored as ``campaign["config"]`` in every result."""
         table, index = self.resolved_mcs
         left, right = self.guard_carriers
         return {

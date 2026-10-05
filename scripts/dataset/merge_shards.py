@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge dataset shards into one run and pack it.
 
-    .venv/bin/python merge_shards.py dataset/irc_ce20k dataset/irc_ce20k/shards/*
+    .venv/bin/python scripts/dataset/merge_shards.py dataset/irc_ce20k dataset/irc_ce20k/shards/*
 
 Channel folders are named by the global scenario index, so shards never collide;
 they are symlinked into ``<dst>/channels``. Duplicate (scenario, modulation) records
@@ -14,6 +14,8 @@ import json
 import shutil
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import pack_dataset
 

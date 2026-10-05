@@ -15,6 +15,12 @@ dependencies = [
   "matplotlib",
 ]
 
+[project.optional-dependencies]
+# dataset analysis, working-point regressors, reports
+analysis = ["scipy", "scikit-learn", "lightgbm"]
+# test suite and scripts/physics_checks.py
+dev = ["pytest", "scipy"]
+
 [project.scripts]
 nr-ul-sim = "nr_ul_sim.cli:main"
 

@@ -34,7 +34,7 @@ Adaptation to the 5G NR uplink of this simulator:
   table measured on validation data; the LMMSE ones report it analytically.
 
 The trained weights and statistics live in ``models/paper_ce`` and are made
-by ``train_paper_ce.py``.
+by ``scripts/training/train_paper_ce.py``.
 """
 
 from __future__ import annotations

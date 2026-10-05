@@ -1,3 +1,24 @@
+"""The link-level simulator: one PUSCH slot end to end, and SNR sweeps over it.
+
+Per Monte-Carlo iteration (:meth:`NRUplinkSimulator.measure_point`)::
+
+    transmit            bits -> LDPC -> QAM -> layers -> resource grid with DMRS
+    generate_slot       serving channel, interferers, thermal noise  -> slot dict
+    estimate_csi        every configured channel estimator on the same slot
+    detect              equalise (MR / ZF / L-MMSE / IRC), demap, LDPC-decode
+
+:meth:`NRUplinkSimulator.run` repeats this over the SNR and IoT lists of the
+:class:`~nr_ul_sim.parameters.SimConfig` and interpolates the working points.
+
+Tensor layouts (Sionna conventions; ``B`` = batch of slots):
+
+    x      [B, UE, UE ant, symbol, FFT bin]             transmitted grid
+    h      [B, 1, RX ant, UE, UE ant, symbol, FFT bin]  frequency-domain channel
+    y      [B, 1, RX ant, symbol, FFT bin]              received grid
+    h_hat  [B, 1, RX ant, UE, stream, symbol, used subcarrier]
+    b      [B, UE, transport-block bits]
+"""
+
 from __future__ import annotations
 
 import time
@@ -24,6 +45,7 @@ from .receivers import build_receivers, effective_channel
 
 
 def _select_device() -> torch.device:
+    """CUDA when it actually works (a tensor can be allocated), else the CPU."""
     try:
         if torch.cuda.is_available():
             torch.zeros(1, device="cuda")
@@ -34,6 +56,14 @@ def _select_device() -> torch.device:
 
 
 class NRUplinkSimulator:
+    """5G NR PUSCH uplink for one :class:`SimConfig`.
+
+    ``run()`` returns the whole campaign; ``generate_slot`` / ``estimate_csi`` /
+    ``detect`` expose the stages for step-by-step use (see
+    ``examples/02_one_slot_step_by_step.py``). Subclasses replace the channel
+    by overriding ``_make_model`` and ``_draw_topology``.
+    """
+
     def __init__(self, cfg: SimConfig):
         import sionna.phy
         from sionna.phy.channel import ApplyOFDMChannel, GenerateOFDMChannel
@@ -59,6 +89,7 @@ class NRUplinkSimulator:
             self.gen_int = GenerateOFDMChannel(self.int_model, rg, normalize_channel=True)
 
     def _make_model(self, num_tx: int):
+        """Sionna channel model with ``num_tx`` transmitters (serving UEs or interferers)."""
         if self.cfg.channel in ("umi", "uma"):
             return build_system_level_channel(self.cfg)
         return build_cdl_links(self.cfg, num_tx)
@@ -72,6 +103,7 @@ class NRUplinkSimulator:
         return x, b
 
     def interferer_grid(self, batch_size: int, like: torch.Tensor) -> torch.Tensor:
+        """Unit-power Gaussian symbols of the interferers on the used subcarriers."""
         cfg = self.cfg
         return random_ofdm_grid(
             batch_size, cfg.num_interferers, cfg.resolved_ue_ant,
@@ -80,12 +112,24 @@ class NRUplinkSimulator:
             guard_carriers=cfg.guard_carriers,
         )
 
-    def generate_slot(self, batch_size: int, snr_db: float, iot_db: float):
+    def _draw_topology(self, batch_size: int, iot_db: float) -> None:
+        """New UMi/UMa drop for this batch (CDL has no topology)."""
         cfg = self.cfg
         if cfg.channel in ("umi", "uma"):
             set_system_topology(self.serving_model, cfg, batch_size, cfg.num_ue)
             if iot_db > 0.0 and self.int_model is not None:
                 set_system_topology(self.int_model, cfg, batch_size, cfg.num_interferers)
+
+    def generate_slot(self, batch_size: int, snr_db: float, iot_db: float):
+        """Transmit one batch of slots through channel, interference and noise.
+
+        Returns the slot dict used by the receiver stages: ``b`` transmitted
+        bits, ``y`` received grid, ``h`` / ``h_int`` true serving / interferer
+        channels (``h_int`` is ``None`` without interference), ``no`` noise
+        variance and ``iot_db``.
+        """
+        cfg = self.cfg
+        self._draw_topology(batch_size, iot_db)
 
         x, b = self.transmit(batch_size)
         no = snrdb_to_noise_var(snr_db)
@@ -108,12 +152,19 @@ class NRUplinkSimulator:
         }
 
     def _keys(self) -> list[tuple[str, str, str]]:
+        """``(result key, receiver, estimator)`` of every curve, see ``detection_keys``."""
         return detection_keys(self.cfg.receivers, self.cfg.channel_estimators)
 
     def true_channel(self, h):
+        """True channel as the receiver sees it: used subcarriers, precoding and power scale."""
         return effective_channel(h, self.cfg.guard_carriers, self.rx.w, self.cfg.layer_power_scale)
 
     def estimate_csi(self, slot: dict[str, Any]) -> None:
+        """Run every configured estimator: ``slot["csi"][name] = (h_hat, err_var)``.
+
+        Also stores the true channel as ``slot["h_perf"]`` when something needs
+        it, and the first non-perfect estimate as ``slot["h_hat"]`` / ``slot["err_var"]``.
+        """
         y, no = slot["y"], slot["no"]
         if not torch.is_tensor(no):
             no = torch.tensor(no, device=y.device, dtype=y.real.dtype)
@@ -139,6 +190,11 @@ class NRUplinkSimulator:
         slot["h_hat"], slot["err_var"] = slot["csi"][default]
 
     def detect(self, slot: dict[str, Any], receiver_name: str, estimator: str | None = None):
+        """Decoded bits of one receiver with one estimator's CSI on this slot.
+
+        ``ideal_mmse``, ``perfect`` and ``cfg.perfect_csi`` use the true channel.
+        IRC gets the interference covariance chosen by ``cfg.iot_cov``.
+        """
         if "csi" not in slot and "h_hat" not in slot:
             self.estimate_csi(slot)
         y, no = slot["y"], slot["no"]
@@ -196,6 +252,12 @@ class NRUplinkSimulator:
         return stats
 
     def run(self, snr_db=None, iot_db=None, verbose: bool = True) -> dict[str, Any]:
+        """SNR sweep for every IoT value.
+
+        Returns ``{"config", "device", "duration_s", "iot": {str(iot): {key: curve}}}``
+        where a curve has ``snr_db``, ``ber``, ``bler``, ``stats``,
+        ``working_point_db`` and ``working_point_bler_db`` (``None`` = not reached).
+        """
         cfg = self.cfg
         snr_db = list(cfg.snr_db if snr_db is None else snr_db)
         iot_db = list(cfg.iot_db if iot_db is None else iot_db)

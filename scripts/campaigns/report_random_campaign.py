@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Report for the random-channel working-point campaign (run_random_campaign.py).
 
-    .venv/bin/python report_random_campaign.py ~/reports/random_ch_2026-09-30 [interp_check.json]
-    .venv/bin/python report_random_campaign.py ~/reports/random_ch_ammse_2026-10-05 --compare ~/reports/random_ch_2026-09-30
+    .venv/bin/python scripts/campaigns/report_random_campaign.py ~/reports/random_ch_2026-09-30 [interp_check.json]
+    .venv/bin/python scripts/campaigns/report_random_campaign.py ~/reports/random_ch_ammse_2026-10-05 --compare ~/reports/random_ch_2026-09-30
 
 Writes <campaign>/report/REPORT.md (Russian) and figures next to it: setup,
 verification (labels recomputed from the stored BER curves, optional dense
@@ -32,7 +32,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from nr_ul_sim.wp_search import classify, interpolate_wp  # noqa: E402
 
 argv = sys.argv[1:]
@@ -529,7 +529,7 @@ if (O / "notes.md").exists():  # hand-written conclusions for this campaign
 figs = ["wp_vs_sinr.png", "ce_loss_by_model.png", "ce_loss_vs_speed_ds.png", "ammse_vs_lmmse_data.png"]
 add(f"## {sec}. Файлы\n")
 add(f"""- `{O}/results/worker_*.jsonl` — записи конфигураций; `arrays/ID.npz` — таблицы кластеров / геометрия дропа.
-- `wp_wide.csv`, `wp_long.csv`, `summary.md` — пересобраны `summarize_random_campaign.py` по завершении.
+- `wp_wide.csv`, `wp_long.csv`, `summary.md` — пересобраны `scripts/campaigns/summarize_random_campaign.py` по завершении.
 - `report/REPORT.md` и рисунки: {', '.join(f'`{f}`' for f in figs if (R / f).exists())}.
 """)
 

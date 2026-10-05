@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Full 68-PRB test matrix: every channel x modulation x receiver x IoT, plus the
 # channel-estimator study with IRC. Jobs run in parallel on the GPU.
-#   OUT=/root/reports/x/campaigns WORKERS=3 ./run_campaigns.sh
+#   OUT=/root/reports/x/campaigns WORKERS=3 scripts/campaigns/run_campaigns.sh
 # PRB=12 shrinks the allocation: a 2-UE job with the LMMSE estimators needs
 # 21 GB of GPU memory at 68 PRB and 1 GB at 12 PRB.
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."   # repository root
 
 OUT=${OUT:-results/campaigns}
 WORKERS=${WORKERS:-3}

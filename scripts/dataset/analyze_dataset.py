@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize a working-point dataset:  .venv/bin/python analyze_dataset.py dataset/main
+"""Summarize a working-point dataset:  .venv/bin/python scripts/dataset/analyze_dataset.py dataset/main
 
 Prints label coverage and the physical gaps the simulator should reproduce (modulation,
 channel estimation, IRC vs L-MMSE), fits a ridge baseline on the scalar features so a
@@ -16,6 +16,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import load_dataset
 

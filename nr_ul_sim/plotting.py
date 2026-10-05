@@ -1,3 +1,9 @@
+"""Figures of a campaign: BER/BLER curves and working-point bar charts.
+
+``RECEIVER_STYLE`` gives every receiver and channel estimator its colour,
+marker and label; the report scripts reuse it so figures stay consistent.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -88,6 +94,7 @@ def _style_axis(ax, ylabel: str, iot: str, target: float | None) -> None:
 
 
 def plot_campaign(campaign: dict[str, Any], outfile: str | Path) -> Path:
+    """BER (top) and BLER (bottom) versus SNR, one column per IoT value."""
     outfile = Path(outfile)
     outfile.parent.mkdir(parents=True, exist_ok=True)
     cfg = campaign["config"]
@@ -107,6 +114,7 @@ def plot_campaign(campaign: dict[str, Any], outfile: str | Path) -> Path:
 
 
 def plot_working_points(campaign: dict[str, Any], outfile: str | Path, metric: str = "ber") -> Path:
+    """Bar chart of the working points of every curve, grouped by IoT value."""
     outfile = Path(outfile)
     outfile.parent.mkdir(parents=True, exist_ok=True)
     cfg = campaign["config"]
@@ -147,6 +155,7 @@ def plot_working_points(campaign: dict[str, Any], outfile: str | Path, metric: s
 
 
 def save_campaign_plots(campaign: dict[str, Any], outdir: str | Path, stem: str) -> list[Path]:
+    """Write the curve figure and both working-point figures; returns their paths."""
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     return [

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Train the paper channel estimators (nr_ul_sim/paper_ce.py).
 
-    .venv/bin/python train_paper_ce.py --out models/paper_ce
+    .venv/bin/python scripts/training/train_paper_ce.py --out models/paper_ce
 
 Training data follow the EqDeepRx protocol: 3GPP UMa drops, UE speed
 uniform in 0-35 m/s, 68 PRB, 4 RX antennas, configurations 1-2 UE x rank 1-2
@@ -25,6 +25,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
+
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim import NRUplinkSimulator, SimConfig
 from nr_ul_sim.paper_ce import (

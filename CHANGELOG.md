@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-10-05 — project layout, starter files, tutorial (no change in results)
+
+Refactoring only: the simulator produces bit-identical numbers. Checked with the test
+suite (106 tests) and a fixed-seed snapshot of every entry point before and after —
+five link-level sweeps covering all receivers, all 14 channel estimators and all
+interference-covariance methods, the CLI, the dataset builder (frozen and ensemble) and
+four random-channel configurations — compared byte for byte on the CPU.
+
+- Root scripts moved: `play.py` → `examples/01_quickstart.py`, `make_dataset.py` →
+  `examples/05_working_point_dataset.py` (now a small demo writing to `dataset/example`),
+  campaign runners and reports → `scripts/campaigns/`, dataset tools →
+  `scripts/dataset/`, training and evaluation → `scripts/training/`,
+  `physics_checks.py` → `scripts/`, the notebook → `notebooks/`. Scripts find the
+  repository root themselves and the shell scripts `cd` to it, so all of them run from
+  any directory. The package `nr_ul_sim`, its module names, `python -m nr_ul_sim` and
+  `python -m nr_ul_sim.dataset` are unchanged.
+- New: `scripts/setup_env.sh` and `scripts/check_install.py` (environment, GPU, trained
+  models, smoke run); `examples/02`–`04` (one slot step by step, receivers under
+  interference, channel estimators); `docs/TUTORIAL.md`, `docs/ARCHITECTURE.md`.
+- CLI: options grouped and documented in `--help`, `--list` prints every channel,
+  modulation, receiver, estimator and covariance method with a description. Defaults
+  are unchanged.
+- `parameters.py`: `SimConfig` fields documented and grouped; `CHANNEL_INFO`,
+  `RECEIVER_INFO`, `ESTIMATOR_INFO`, `IOT_COV_INFO`. Docstrings for every core module.
+- `NRUplinkSimulator._draw_topology` hook; `RandomChannelSimulator` overrides it instead
+  of carrying a copy of `generate_slot`.
+- `pyproject.toml`: optional dependency groups `analysis` and `dev`.
+
+### Found during the review (not fixed: fixing changes dataset labels)
+
+- `dataset.FrozenChannelSimulator.generate_slot` was not updated with the 2026-09-30
+  power fixes of the main simulator. It transmits with unit power per *layer* (rank 2:
+  twice the power of `NRUplinkSimulator`, while the perfect-CSI channel is scaled for
+  unit power per UE), and it scales the interference per interferer *stream*, so the
+  total INR is `iot_db + 10 log10(num_interferers x num_ue_ant)`. Working-point datasets
+  built with `channel_mode="frozen"` (the default) therefore use a different SNR and IoT
+  definition from the sweeps and the random-channel campaign for rank 2 and for more
+  than one interferer stream. `channel_mode="ensemble"` is not affected.
+
 ## 2026-10-05 — random-channel campaign with A-MMSE (5000 configurations, 16 PRB)
 
 Report: `~/reports/random_ch_ammse_2026-10-05/report/REPORT.md` on the new GPU server

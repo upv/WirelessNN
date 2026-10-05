@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report on the paper channel estimators: training, NMSE, link-level campaign.
 
-    .venv/bin/python report_paper_ce.py /root/reports/paper_ce [models/paper_ce]
+    .venv/bin/python scripts/campaigns/report_paper_ce.py /root/reports/paper_ce [models/paper_ce]
 
 Reads <dir>/nmse/nmse.json, <dir>/campaigns/{ce,incm}/*/*.json and
 <models>/train_meta.json; writes <dir>/REPORT.md (Russian) and figures.
@@ -20,11 +20,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from nr_ul_sim.plotting import RECEIVER_STYLE  # noqa: E402
 
 D = Path(sys.argv[1]).resolve()
-M = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else Path(__file__).resolve().parent / "models" / "paper_ce"
+M = Path(sys.argv[2]).resolve() if len(sys.argv) > 2 else Path(__file__).resolve().parents[2] / "models" / "paper_ce"
 NEW = ["ls_fir", "denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse"]
 OLD = ["ls_nn", "ls_lin", "ls_lin_time_avg", "lmmse_exp", "ls_hard_window", "ls_soft_window"]
 CAMP_EST = ["ls_lin", "ls_soft_window", "lmmse_exp", "ls_fir", "denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse"]
@@ -48,7 +48,7 @@ add("""Статьи:
 - **EqDeepRx** — M. Honkala, D. Korpi, E. Raninen, J. Huttunen, *EqDeepRx: Learning a Scalable MIMO Receiver*, arXiv:2602.11834 (Nokia Bell Labs).
 - **A-MMSE** — T. Ha, C. Jung, H. Kim, J. Park, J. Park, *Learning MMSE Filters for OFDM Channel Estimation: Attention Transformer Gains at Linear Inference*, arXiv:2506.00452v5.
 
-Код: `nr_ul_sim/paper_ce.py` (оценщики), `nr_ul_sim/interference.py` (INCM), `train_paper_ce.py` (обучение), `eval_paper_ce.py` (NMSE), `run_paper_ce_campaign.sh` (BER/BLER), `tests/test_paper_ce.py`.
+Код: `nr_ul_sim/paper_ce.py` (оценщики), `nr_ul_sim/interference.py` (INCM), `scripts/training/train_paper_ce.py` (обучение), `scripts/training/eval_paper_ce.py` (NMSE), `scripts/campaigns/run_paper_ce_campaign.sh` (BER/BLER), `tests/test_paper_ce.py`.
 """)
 
 add("## 1. Что взято из статей и как перенесено на PUSCH 68 PRB\n")

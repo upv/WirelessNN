@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fit the scalar-feature ridge baseline and dump pipeline + analysis.
 
-    .venv/bin/python train_ridge.py dataset/run5000 models/ridge
+    .venv/bin/python scripts/training/train_ridge.py dataset/run5000 models/ridge
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import load_dataset
 from nr_ul_sim.ridge import RidgePipeline

@@ -1,3 +1,11 @@
+"""PUSCH receiver: channel estimators, linear MIMO detectors and the TB decoder.
+
+:class:`PuschRx` holds one estimator per configured name and one Sionna
+``LinearDetector`` per receiver. MR, ZF and L-MMSE use Sionna's equalisers; IRC
+is :class:`ExtraCovarianceLMMSE`, an L-MMSE whose noise covariance is
+``N0 I + R_iot`` with ``R_iot`` set per slot by the simulator.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -38,6 +46,7 @@ class ExtraCovarianceLMMSE:
 
 
 def _precoding_w(transmitter):
+    """Codebook precoding matrix of the transmitter, or None without precoding."""
     if transmitter._precoding != "codebook":
         return None
     w = getattr(transmitter._precoder, "_w", None)
@@ -103,6 +112,7 @@ class PuschRx:
         self.tb_decoder = TBDecoder(transmitter._tb_encoder)
 
     def estimate(self, y, no, name: str | None = None):
+        """``(h_hat, err_var)`` of one DMRS estimator (default: the first non-perfect one)."""
         if name is None:
             name = next((n for n in self.estimators if n != "perfect"), None)
             if name is None:
@@ -121,6 +131,7 @@ class PuschRx:
         return h_hat, err_var
 
     def decode(self, y, h_hat, err_var, no, name: str):
+        """Equalise and demap with receiver ``name``, then LDPC-decode: transport-block bits."""
         llr = self.detectors[name](y, h_hat, err_var, no)
         llr = self.layer_demapper(llr)
         b_hat, _crc = self.tb_decoder(llr)
@@ -128,4 +139,5 @@ class PuschRx:
 
 
 def build_receivers(transmitter, cfg: SimConfig) -> PuschRx:
+    """Receiver chain matching ``transmitter`` for the receivers and estimators of ``cfg``."""
     return PuschRx(transmitter, cfg)

@@ -1,9 +1,18 @@
+"""PUSCH transmitter: Sionna ``PUSCHTransmitter`` on a guard-padded FFT grid.
+
+One ``PUSCHConfig`` per UE (DMRS Type-1, consecutive ports per UE, MCS from the
+config). Sionna maps only the allocated PRBs, so :func:`pad_transmitter_fft`
+rebuilds the resource grid with the configured FFT size and guard carriers;
+:func:`strip_guard_subcarriers` goes back to the used subcarriers.
+"""
+
 from __future__ import annotations
 
 from .parameters import SimConfig
 
 
 def build_pusch_configs(cfg: SimConfig):
+    """One Sionna ``PUSCHConfig`` per UE; UE ``u`` gets DMRS ports ``u*rank .. u*rank+rank-1``."""
     from sionna.phy.nr import PUSCHConfig
 
     mcs_table, mcs_index = cfg.resolved_mcs
@@ -76,6 +85,7 @@ def pad_transmitter_fft(transmitter, cfg: SimConfig):
 
 
 def strip_guard_subcarriers(h, guard_carriers: tuple[int, int]):
+    """Keep the used subcarriers of a tensor whose last axis is the FFT bin."""
     left, right = int(guard_carriers[0]), int(guard_carriers[1])
     if left <= 0 and right <= 0:
         return h
@@ -83,6 +93,7 @@ def strip_guard_subcarriers(h, guard_carriers: tuple[int, int]):
 
 
 def build_transmitter(cfg: SimConfig):
+    """Frequency-domain ``PUSCHTransmitter`` for all UEs on the padded FFT grid."""
     from sionna.phy.nr import PUSCHTransmitter
 
     configs = build_pusch_configs(cfg)

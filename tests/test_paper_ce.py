@@ -26,7 +26,7 @@ from nr_ul_sim.parameters import snrdb_to_noise_var
 
 LEARNED = ("denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse")
 HAVE_MODELS = all((DEFAULT_MODEL_DIR / f).exists() for f in ("denoise_nn.pt", "data_cov.pt", "a_mmse.pt"))
-needs_models = pytest.mark.skipif(not HAVE_MODELS, reason="run train_paper_ce.py first")
+needs_models = pytest.mark.skipif(not HAVE_MODELS, reason="run scripts/training/train_paper_ce.py first")
 
 
 def _nmse(a, b):

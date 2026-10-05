@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Random-channel working-point campaign.
 
-    .venv/bin/python run_random_campaign.py --out /root/reports/random_ch --per-model 1000 --workers 2
+    .venv/bin/python scripts/campaigns/run_random_campaign.py --out /root/reports/random_ch --per-model 1000 --workers 2
 
 Writes into ``--out``:
 
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 def _json_default(o):

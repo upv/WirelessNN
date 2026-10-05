@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Channel-estimation study for a fixed IRC receiver.
 
-    .venv/bin/python analyze_ce.py dataset/irc_ce100
+    .venv/bin/python scripts/dataset/analyze_ce.py dataset/irc_ce100
 
 Labels are working points per estimator (wp_perfect, wp_ls_nn, ...). The CE loss
 of an estimator is its working point minus the perfect-CSI working point on the
@@ -18,6 +18,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import load_dataset
 

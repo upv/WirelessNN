@@ -1,3 +1,12 @@
+"""Other-cell interference, thermal noise and the interference covariance for IRC.
+
+:func:`serving_plus_interference` forms the received grid with the interferers
+scaled to the requested *total* INR per antenna.
+:func:`irc_interference_covariance` returns ``R_iot`` by one of
+``IOT_COV_METHODS``: from the true interferer channels, from the received grid,
+or from the DMRS residual (wideband, or per band with OAS shrinkage).
+"""
+
 from __future__ import annotations
 
 import torch
@@ -17,6 +26,7 @@ def random_ofdm_grid(
     device,
     guard_carriers: tuple[int, int],
 ) -> torch.Tensor:
+    """Unit-power complex Gaussian symbols on the used subcarriers, zeros on the guards."""
     x = torch.randn(
         batch_size, num_tx, num_tx_ant, num_ofdm_symbols, fft_size,
         device=device, dtype=dtype,
@@ -108,6 +118,7 @@ def incm_oas_covariance(y, h_hat, pilot_grid, dmrs_syms, guard_carriers, band_sc
 
 
 def project_psd(r: torch.Tensor, min_eig: float = 1e-8) -> torch.Tensor:
+    """Nearest Hermitian positive-definite matrix: eigenvalues clipped at ``min_eig``."""
     r_h = 0.5 * (r + r.transpose(-1, -2).conj())
     eigvals, eigvecs = torch.linalg.eigh(r_h)
     eigvals = torch.clamp(eigvals.real, min=min_eig).to(eigvals.dtype)

@@ -1,13 +1,21 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 .venv/
 venv/
+.DS_Store
+
+# Simulation output: keep figures, drop raw results and logs
 results/*
 !results/*.png
-*.npy
 *.log
+physics_out/
+dataset/example/
+
+# Large arrays stay out of git; metadata and trained models stay in
+*.npy
 *.npz
 !models/**/*.npz
 *.json
@@ -15,7 +23,3 @@ results/*
 !**/dataset_config.json
 !models/**/*.json
 !nr_ul_sim/**
-nr_ul_sim/__pycache__/
-__pycache__/
-*.py[cod]
-.DS_Store

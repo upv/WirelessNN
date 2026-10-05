@@ -1,3 +1,6 @@
+"""Error counting and the working point (SNR where an error rate crosses a target).
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,6 +10,8 @@ import numpy as np
 
 @dataclass
 class ErrorStats:
+    """Running bit and block error counts of one curve at one SNR point."""
+
     bit_errors: int = 0
     num_bits: int = 0
     block_errors: int = 0
@@ -41,6 +46,8 @@ class ErrorStats:
 
 @dataclass
 class SweepResult:
+    """One BER/BLER curve over the SNR list, with its working points."""
+
     snr_db: list[float] = field(default_factory=list)
     ber: list[float] = field(default_factory=list)
     bler: list[float] = field(default_factory=list)

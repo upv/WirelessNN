@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Round two: stronger WP regressors plus a reachability classifier.
 
-    .venv/bin/python train_wp_models2.py dataset/irc_ce10k models/wp_bench2
+    .venv/bin/python scripts/training/train_wp_models2.py dataset/irc_ce10k models/wp_bench2
 
 Round one showed a quadratic ridge edging out the boosted trees, so the models
 here either widen that basis, boost its residual, or replace it with a net.
@@ -32,6 +32,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
 from lightgbm import LGBMClassifier, LGBMRegressor
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import load_dataset
 from train_wp_models import ALPHA_GRID, N_SPLITS, SEED, build_features, metrics

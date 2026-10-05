@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark regressors that predict the working point [dB] from scalar features.
 
-    .venv/bin/python train_wp_models.py dataset/irc_ce10k models/wp_bench
+    .venv/bin/python scripts/training/train_wp_models.py dataset/irc_ce10k models/wp_bench
 
 The working point *is* an SNR (the SNR where BER crosses target_ber), so it is
 the target, never an input. Scoring is 5-fold grouped by channel: the three
@@ -35,6 +35,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
 from lightgbm import LGBMRegressor
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim.dataset import load_dataset
 

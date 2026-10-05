@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Flatten a random-channel campaign into tables for the working-point model.
 
-    .venv/bin/python summarize_random_campaign.py /root/reports/random_ch_2026-09-30
+    .venv/bin/python scripts/campaigns/summarize_random_campaign.py /root/reports/random_ch_2026-09-30
 
 Writes into the campaign directory:
 
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from nr_ul_sim.parameters import CHANNEL_ESTIMATORS  # noqa: E402
 
 ESTIMATORS = list(CHANNEL_ESTIMATORS)  # estimators missing from a record are skipped

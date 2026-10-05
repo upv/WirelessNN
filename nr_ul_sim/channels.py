@@ -1,3 +1,12 @@
+"""Channel models: 3GPP CDL links and UMi/UMa system-level drops (TR 38.901).
+
+CDL: one independent CDL realisation per transmitter, stacked on the TX axis
+(:class:`IndependentLinkChannel`). UMi/UMa: one Sionna system-level model whose
+topology (UE positions, LoS state, ...) is redrawn for every batch by
+:func:`set_system_topology`. The gNB panel uses the 38.901 element pattern, UEs
+are omnidirectional.
+"""
+
 from __future__ import annotations
 
 import torch
@@ -14,6 +23,7 @@ _ARRAY_LAYOUT = {
 
 
 def make_array(num_ant: int, carrier_frequency: float, *, bs: bool):
+    """38.901 antenna array with 1, 2, 4 or 8 elements (gNB: 38.901 pattern, UE: omni)."""
     from sionna.phy.channel.tr38901 import AntennaArray
 
     if num_ant not in _ARRAY_LAYOUT:
@@ -48,6 +58,7 @@ class IndependentLinkChannel(ChannelModel):
 
 
 def build_cdl_links(cfg: SimConfig, num_tx: int):
+    """``num_tx`` independent CDL links with the configured delay spread and speed."""
     from sionna.phy.channel.tr38901 import CDL
 
     letter = {"cdl-b": "B", "cdl-c": "C", "cdl-d": "D"}[cfg.channel]
@@ -71,6 +82,7 @@ def build_cdl_links(cfg: SimConfig, num_tx: int):
 
 
 def build_system_level_channel(cfg: SimConfig):
+    """Sionna UMi / UMa model; call :func:`set_system_topology` before generating."""
     from sionna.phy.channel.tr38901 import UMa, UMi
 
     kwargs = dict(
@@ -90,6 +102,7 @@ def build_system_level_channel(cfg: SimConfig):
 
 
 def set_system_topology(channel_model, cfg: SimConfig, batch_size: int, num_ut: int) -> None:
+    """Draw a new single-sector drop of ``num_ut`` UEs for every batch element."""
     from sionna.phy.channel import gen_single_sector_topology
 
     key = (batch_size, num_ut)

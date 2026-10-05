@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
-"""IRC working points vs channel estimation.  .venv/bin/python make_dataset.py
+"""Working-point dataset:  python examples/05_working_point_dataset.py
 
 Each scenario freezes one channel realization, then searches the SNR where the coded
 BER of IRC crosses TARGET_BER for every estimator and modulation. Output goes to OUTDIR:
-meta.jsonl / dataset.csv and channels/<id>/{H,H_int,R_iot}.npy.
+meta.jsonl / dataset.csv, channels/<id>/{H,H_int,R_iot}.npy and the packed dataset.npz.
+
+The knobs below are a small demo (4 scenarios, 8 PRB, about three minutes on a CPU). The
+values of the tracked dataset/irc_ce100 run are given in the comments marked "full:".
+The same builder from the command line: python -m nr_ul_sim.dataset --help
 """
 
+import sys
 from pathlib import Path
 
-import numpy as np
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root
 
-from nr_ul_sim.dataset import DatasetConfig, generate_dataset, load_dataset
+import numpy as np  # noqa: E402
 
-NUM_SAMPLES = 100          # random scenarios; each yields one record per modulation
+from nr_ul_sim.dataset import DatasetConfig, generate_dataset, load_dataset  # noqa: E402
+
+NUM_SAMPLES = 4            # random scenarios; each yields one record per modulation (full: 100)
 START_INDEX = 0            # shard offset, scenario i is reproducible from (SEED, i)
-OUTDIR = Path("dataset/irc_ce100")
+OUTDIR = Path("dataset/example")
 SEED = 0
-RESUME = False             # True: append to an existing OUTDIR
+RESUME = False             # True: append to an existing OUTDIR (False refuses to overwrite one)
 
 CHANNELS = ("cdl-b", "cdl-c", "umi", "uma")
 MODULATIONS = ("qpsk", "qam16", "qam64")
@@ -32,7 +39,7 @@ IOT_DB = (0.0, 20.0)       # uniform INR
 P_NO_IOT = 0.25            # share of scenarios with no other-cell interference
 NUM_INTERFERERS = (1, 2, 3)
 
-NUM_PRB = 68               # full 68-PRB allocation (816 subcarriers)
+NUM_PRB = 8                # full: 68 (816 subcarriers)
 FFT_SIZE = 1024
 CHANNEL_MODE = "frozen"    # frozen = label belongs to the stored tensor
 
@@ -41,7 +48,7 @@ SNR_RANGE = (-20.0, 40.0)  # 64QAM needs extra headroom
 COARSE_STEP = 4.0          # bracketing grid, then bisection down to REFINE_DB
 REFINE_DB = 0.5
 BATCH_SIZE = 2
-MAX_MC_ITER = 10
+MAX_MC_ITER = 4            # full: 10
 NUM_TARGET_BIT_ERRORS = 200
 
 NUM_FREQ_BINS = 64         # stored tensor: [rx ant, streams, symbols, subcarriers]
@@ -92,7 +99,7 @@ data = load_dataset(npz_path)
 print(f"\nWrote {npz_path}")
 print(f"  H      {data['H'].shape} {data['H'].dtype}   (samples, rx ant, streams, sym, sc)")
 print(f"  R_iot  {data['R_iot'].shape}")
-print(f"  features {list(data['feature_names'])}")
+print(f"  features {[str(n) for n in data['feature_names']]}")
 for receiver in data["receivers"]:
     wp = data[f"wp_{receiver}"]
     ok = wp[np.isfinite(wp)]

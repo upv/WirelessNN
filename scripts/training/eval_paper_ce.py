@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """NMSE of every channel estimator vs SNR inside the link simulator (68 PRB).
 
-    .venv/bin/python eval_paper_ce.py --out ~/reports/paper_ce/nmse
+    .venv/bin/python scripts/training/eval_paper_ce.py --out ~/reports/paper_ce/nmse
 
 The paper estimators are trained on UMa (EqDeepRx protocol); UMi, CDL-B and
 CDL-C are out of the training distribution. Writes nmse.json and nmse.png.
@@ -22,6 +22,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sionna.phy
 import torch
+
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repository root
 
 from nr_ul_sim import NRUplinkSimulator, SimConfig
 from nr_ul_sim.plotting import RECEIVER_STYLE
