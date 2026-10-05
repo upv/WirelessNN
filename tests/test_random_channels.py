@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 
-from nr_ul_sim.random_campaign import CELLS, plan_configs, start_snr
+from nr_ul_sim.paper_ce import DEFAULT_MODEL_DIR
+from nr_ul_sim.parameters import CHANNEL_ESTIMATORS
+from nr_ul_sim.random_campaign import CELLS, parse_estimators, plan_configs, run_config, start_snr
 from nr_ul_sim.random_channels import (
     circular_mean_spread,
     linear_mean_spread,
@@ -94,3 +96,24 @@ def test_start_snr_inside_range():
         for ue, r in ((1, 1), (2, 2)):
             for iot in (0.0, 20.0):
                 assert -16.0 <= start_snr(mod, ue, r, iot) <= 48.0
+
+
+def test_parse_estimators():
+    assert parse_estimators("") == CHANNEL_ESTIMATORS
+    assert parse_estimators("a_mmse, ls_lin,perfect,a_mmse") == ("perfect", "a_mmse", "ls_lin")
+    with pytest.raises(ValueError, match="nope"):
+        parse_estimators("ls_lin,nope")
+
+
+@pytest.mark.skipif(not (DEFAULT_MODEL_DIR / "a_mmse.pt").exists(), reason="run train_paper_ce.py first")
+@pytest.mark.parametrize("channel,num_ue,rank", [("cdl-c", 1, 1), ("uma", 2, 2)])
+def test_run_config_with_a_mmse(channel, num_ue, rank):
+    row = {"id": 0, "seed": 7, "channel": channel, "num_ue": num_ue, "rank": rank, "modulation": "qpsk"}
+    est = parse_estimators("ls_lin,lmmse_data,a_mmse")
+    rec, _ = run_config(row, num_prb=8, batch_size=2, max_mc_iter=2, target_bit_errors=50,
+                        target_block_errors=4, max_points=3, estimators=est)
+    assert set(rec["estimators"]) == set(est)
+    for name, r in rec["estimators"].items():
+        assert r["status"] in ("ok", "right_censored", "left_censored"), name
+        if r["status"] == "ok":
+            assert rec["search"]["lo_db"] <= r["wp_db"] <= rec["search"]["hi_db"]

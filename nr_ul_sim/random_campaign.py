@@ -64,6 +64,19 @@ def plan_configs(per_model: int, channels=CHANNELS, seed: int = 2026) -> list[di
     return rows
 
 
+def parse_estimators(spec: str) -> tuple[str, ...]:
+    """Comma-separated estimator list for a campaign; empty means all of them.
+
+    ``perfect`` is always first: every loss is measured against it.
+    """
+    names = [e.strip() for e in spec.split(",") if e.strip()] or list(CHANNEL_ESTIMATORS)
+    unknown = [e for e in names if e not in CHANNEL_ESTIMATORS]
+    if unknown:
+        raise ValueError(f"unknown channel estimators {unknown}")
+    names = ["perfect"] + [e for e in names if e != "perfect"]
+    return tuple(dict.fromkeys(names))
+
+
 def start_snr(mod: str, num_ue: int, rank: int, iot_db: float) -> float:
     lo, hi = SNR_RANGE_DB[mod]
     s = BASE_WP_DB[mod] + 3.0 * (num_ue * rank - 1) + 0.8 * iot_db

@@ -85,6 +85,7 @@ def write_plan(args, out: Path) -> None:
         "num_configs": len(rows),
         "channels": channels,
         "receiver": "irc",
+        "estimators": args.estimators.split(","),
         "iot_cov": "perfect",
         "working_point": "BER",
         "parameter_ranges": ranges,
@@ -114,7 +115,7 @@ def worker(args, out: Path, k: int) -> None:
                 row, num_prb=args.num_prb, fft_size=args.fft_size, batch_size=args.batch_size,
                 max_mc_iter=args.max_mc_iter, target_bit_errors=args.target_bit_errors,
                 target_block_errors=args.target_block_errors, target_ber=args.target_ber,
-                max_points=args.max_points,
+                max_points=args.max_points, estimators=tuple(args.estimators.split(",")),
             )
             np.savez_compressed(out / "arrays" / f"{row['id']:06d}.npz",
                                 **{kk: np.asarray(v) for kk, v in arrays.items()})
@@ -158,7 +159,15 @@ def main() -> int:
     p.add_argument("--target-block-errors", type=int, default=20)
     p.add_argument("--target-ber", type=float, default=1e-2)
     p.add_argument("--max-points", type=int, default=10)
+    p.add_argument("--estimators", default="",
+                   help="comma-separated channel estimators (default: all in CHANNEL_ESTIMATORS); "
+                        "perfect is always added")
     args = p.parse_args()
+    from nr_ul_sim.random_campaign import parse_estimators
+    try:
+        args.estimators = ",".join(parse_estimators(args.estimators))
+    except ValueError as exc:
+        p.error(str(exc))
 
     out = Path(args.out)
     for d in ("results", "arrays", "logs"):
