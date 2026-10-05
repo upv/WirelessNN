@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-05 — channel estimators from EqDeepRx and A-MMSE
+
+Papers: EqDeepRx (arXiv:2602.11834) and A-MMSE (arXiv:2506.00452). Report with all tables:
+`~/reports/paper_ce/REPORT.md` (outside the repository).
+
+- `nr_ul_sim/paper_ce.py`: new channel estimators `ls_fir` (LS + static 17-tap frequency FIR,
+  EqDeepRx baseline), `denoise_nn` (EqDeepRx DenoiseNN), `lmmse_data` / `lmmse_data_1d`
+  (2D / 1D LMMSE with a covariance estimated from training channels), `a_mmse` (attention
+  transformer that learns one fixed linear filter per 4-PRB block, bank over SNR and DMRS
+  comb) and `ra_a_mmse` (rank-6 variant). Registered in `channel_estimation.py`, `cli.py`,
+  `parameters.py`, `plotting.py`, `receivers.py`.
+- `nr_ul_sim/interference.py`: `--iot-cov incm_oas`, the EqDeepRx interference-plus-noise
+  covariance from the DMRS residual over 2 PRB with shrinkage towards a scaled identity.
+- `train_paper_ce.py` + `models/paper_ce/`: trained on UMa, 0–35 m/s, 1–2 UE × rank 1–2,
+  68 PRB; UMi, CDL-B and CDL-C are out of the training distribution.
+- `eval_paper_ce.py`: NMSE vs SNR for every estimator, 6 scenarios. Defaults are 256 slots per
+  point, and every SNR point uses the same channel realisations. With the previous
+  16 slots and new channels per point, UMa/UMi curves were off by up to 15 dB at
+  high SNR.
+- `run_paper_ce_campaign.sh`, `report_paper_ce.py`, `tests/test_paper_ce.py` (103 tests pass).
+
+### Results (48 link-level campaigns, IRC, 68 PRB)
+
+Median loss of the working point against perfect CSI, BER = 1e-2: DenoiseNN 0.63 dB,
+LMMSE exp. prior 0.64, LMMSE data covariance 0.99, A-MMSE 1.05, RA-A-MMSE 1.07,
+LS + soft window 1.16, LS + FIR 1.31, LS-linear 2.84. DenoiseNN carries over to CDL
+outside its training set (CDL-B 0.18, CDL-C 0.34 dB; LMMSE exp. prior 0.15 / 0.57) but
+misses the working point in 9/72 cases. A-MMSE converges to the best fixed linear filter,
+as the paper says, and does not beat `lmmse_data`. RA-A-MMSE with rank 6 loses
+2–4.5 dB NMSE above 10 dB SNR on UMa validation.
+
 ## 2026-10-02 — random-channel campaign report
 
 - `report_random_campaign.py`: report generator for `run_random_campaign.py` output

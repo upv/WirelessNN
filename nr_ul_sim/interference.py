@@ -75,6 +75,38 @@ def residual_covariance_from_dmrs(
     return sample_covariance(e)
 
 
+def dmrs_residual(y, h_hat, pilot_grid, dmrs_syms, guard_carriers):
+    """y - H_hat p on the DMRS symbols: [B, num_dmrs_sym, num_sc, rx]."""
+    y_eff = strip_guard_subcarriers(y, guard_carriers)[:, :, :, dmrs_syms, :]
+    p = pilot_grid[:, :, dmrs_syms, :].to(device=y.device, dtype=y.dtype)
+    h = h_hat[:, :, :, :, :, dmrs_syms, :]
+    e = y_eff - torch.einsum("brmtsdn,tsdn->brmdn", h, p)
+    return e[:, 0].permute(0, 2, 3, 1)
+
+
+def incm_oas_covariance(y, h_hat, pilot_grid, dmrs_syms, guard_carriers, band_sc: int = 24):
+    """EqDeepRx INCM: sample covariance of the DMRS residual per band of
+    ``band_sc`` subcarriers, shrunk towards tr(S)/p I with the OAS-type weight.
+
+    Returns the interference-plus-noise covariance [B, num_sc, rx, rx].
+    """
+    from .paper_ce import oas_shrinkage
+
+    e = dmrs_residual(y, h_hat, pilot_grid, dmrs_syms, guard_carriers)   # [B, D, N, M]
+    b, d, n, m = e.shape
+    nb = -(-n // band_sc)
+    pad = nb * band_sc - n
+    if pad:
+        e = torch.cat([e, e[:, :, -pad:]], dim=2)  # reuse the last subcarriers for a short band
+    eb = e.reshape(b, d, nb, band_sc, m).permute(0, 2, 1, 3, 4).reshape(b, nb, d * band_sc, m)
+    s = torch.einsum("bknm,bknl->bkml", eb, eb.conj()) / (d * band_sc)
+    rho = oas_shrinkage(s, d * band_sc)[..., None, None]
+    eye = torch.eye(m, device=s.device, dtype=s.dtype)
+    mu = torch.diagonal(s, dim1=-2, dim2=-1).real.sum(-1)[..., None, None] / m
+    r = (1 - rho) * s + rho * mu * eye
+    return r.repeat_interleave(band_sc, dim=1)[:, :n]
+
+
 def project_psd(r: torch.Tensor, min_eig: float = 1e-8) -> torch.Tensor:
     r_h = 0.5 * (r + r.transpose(-1, -2).conj())
     eigvals, eigvecs = torch.linalg.eigh(r_h)
@@ -112,6 +144,7 @@ def irc_interference_covariance(
     pilot_grid=None,
     dmrs_syms=None,
     guard_carriers=(0, 0),
+    band_sc: int = 24,
 ):
     """Other-cell interference covariance R_iot used by the IRC receiver.
 
@@ -119,6 +152,8 @@ def irc_interference_covariance(
     estimated -- sample covariance of the whole received grid minus N0 I
                  (contains the serving users' signal, kept for backwards compatibility)
     residual  -- covariance of the DMRS residual y - H_hat p minus N0 I
+    incm_oas  -- EqDeepRx INCM: residual covariance per 2 PRB with OAS shrinkage,
+                 minus N0 I; returned per subcarrier [B, num_sc, rx, rx]
     """
     b, rx_ant = y.shape[0], y.shape[2]
     if iot_db <= 0.0 and method == "perfect":
@@ -137,4 +172,10 @@ def irc_interference_covariance(
             raise ValueError("residual IoT covariance needs h_hat, pilot_grid and dmrs_syms")
         r = residual_covariance_from_dmrs(y, h_hat, pilot_grid, dmrs_syms, guard_carriers)
         return project_psd(r - float(no) * eye)
+    if method == "incm_oas":
+        if h_hat is None or pilot_grid is None or dmrs_syms is None:
+            raise ValueError("incm_oas needs h_hat, pilot_grid and dmrs_syms")
+        r = incm_oas_covariance(y, h_hat, pilot_grid, dmrs_syms, guard_carriers, band_sc)
+        # the equalizer adds N0 I back: S = N0 I + (R_in - N0 I) = R_in
+        return r - float(no) * torch.eye(rx_ant, device=y.device, dtype=y.dtype)
     raise ValueError(f"unknown IoT covariance method {method!r}")

@@ -163,7 +163,7 @@ class NRUplinkSimulator:
                 irc_interference_covariance(
                     slot["h_int"], y, no, slot["iot_db"], method=self.cfg.iot_cov,
                     h_hat=h_hat, pilot_grid=self.rx.pilot_grid, dmrs_syms=self.rx.dmrs_syms,
-                    guard_carriers=self.cfg.guard_carriers,
+                    guard_carriers=self.cfg.guard_carriers, band_sc=self.cfg.incm_band_sc,
                 )
             )
         else:

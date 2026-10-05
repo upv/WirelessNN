@@ -29,6 +29,16 @@ WINDOW_MODE = {
     "ls_soft_window": "soft",
 }
 
+# EqDeepRx (arXiv 2602.11834) and A-MMSE (arXiv 2506.00452), see paper_ce.py
+PAPER_ESTIMATORS = {
+    "ls_fir": ("FirSmoothingEstimator", {}),
+    "denoise_nn": ("DenoiseNNEstimator", {}),
+    "lmmse_data": ("DataLMMSEEstimator", {"mode": "2d"}),
+    "lmmse_data_1d": ("DataLMMSEEstimator", {"mode": "1d"}),
+    "a_mmse": ("AMMSEEstimator", {}),
+    "ra_a_mmse": ("AMMSEEstimator", {"rank_adaptive": True}),
+}
+
 ROBUST_PRIOR_DS_SYSTEM_LEVEL = 1000e-9  # exponential prior for UMi/UMa drops [s]
 
 # CDL letter ≈ TDL letter; UMi/UMa use a typical NLoS urban prior.
@@ -122,6 +132,13 @@ def build_estimator(name: str, transmitter, cfg: SimConfig):
             soft_within_window=cfg.ce_soft_within_window,
             time_interp=cfg.ce_time_interp,
         )
+    if name in PAPER_ESTIMATORS:
+        from . import paper_ce
+
+        kw = {} if name == "ls_fir" else {
+            "model_dir": cfg.ce_model_dir or paper_ce.DEFAULT_MODEL_DIR}
+        cls, extra = PAPER_ESTIMATORS[name]
+        return getattr(paper_ce, cls)(*args, **kw, **extra)
     if name in ("lmmse_ce", "lmmse_exp"):
         build = lmmse_covariances if name == "lmmse_ce" else robust_lmmse_covariances
         cov_time, cov_freq = build(cfg, transmitter.resource_grid)

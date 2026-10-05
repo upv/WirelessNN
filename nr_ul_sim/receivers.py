@@ -31,7 +31,8 @@ class ExtraCovarianceLMMSE:
         r = self.r_int
         if torch.is_tensor(r):
             r = r.to(device=s.device, dtype=s.dtype)
-            r = r.reshape(r.shape[0], *([1] * (s.ndim - r.ndim)), r.shape[-2], r.shape[-1])
+            # [B, rx, rx] wideband or [B, num_sc, rx, rx] per subcarrier
+            r = r.reshape(r.shape[0], *([1] * (s.ndim - r.ndim)), *r.shape[1:])
             s = s + r
         return lmmse_equalizer(y, h, s, whiten_interference=True, precision=precision)
 

@@ -21,6 +21,12 @@ RECEIVER_STYLE = {
     "lmmse_exp": dict(color="#ff9da6", marker="d", label="LMMSE-CE (exp. prior)"),
     "ls_hard_window": dict(color="#e45756", marker="v", label="LS + hard window"),
     "ls_soft_window": dict(color="#72b7b2", marker="X", label="LS + soft window"),
+    "ls_fir": dict(color="#bab0ac", marker="h", label="LS + freq. FIR (EqDeepRx base)"),
+    "denoise_nn": dict(color="#2f4b7c", marker="*", label="DenoiseNN (EqDeepRx)"),
+    "lmmse_data": dict(color="#665191", marker="p", label="LMMSE, data covariance"),
+    "lmmse_data_1d": dict(color="#a05195", marker="<", label="1D-LMMSE, data covariance"),
+    "a_mmse": dict(color="#d45087", marker=">", label="A-MMSE"),
+    "ra_a_mmse": dict(color="#f95d6a", marker="8", label="RA-A-MMSE"),
 }
 WP_KEY = {"ber": "working_point_db", "bler": "working_point_bler_db"}
 TARGET_KEY = {"ber": "target_ber", "bler": "target_bler"}

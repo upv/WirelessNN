@@ -31,7 +31,15 @@ CHANNEL_ESTIMATORS = (
     "lmmse_exp",
     "ls_hard_window",
     "ls_soft_window",
+    "ls_fir",
+    "denoise_nn",
+    "lmmse_data",
+    "lmmse_data_1d",
+    "a_mmse",
+    "ra_a_mmse",
 )
+# estimators that need trained weights / statistics from ce_model_dir
+LEARNED_ESTIMATORS = ("denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse")
 CHANNEL_ESTIMATOR_ALIASES = {
     "ls": "ls_lin",
     "lin": "ls_lin",
@@ -53,7 +61,7 @@ CHANNEL_ESTIMATOR_ALIASES = {
     "soft": "ls_soft_window",
     "sw": "ls_soft_window",
 }
-IOT_COV_METHODS = ("perfect", "estimated", "residual")
+IOT_COV_METHODS = ("perfect", "estimated", "residual", "incm_oas")
 TX_POWER_NORMS = ("per_ue", "per_layer")
 DEFAULT_DELAY_SPREAD = {
     "cdl-b": 100e-9,
@@ -168,6 +176,10 @@ class SimConfig:
     ce_time_interp: str = "linear"
     # RMS delay spread of the exponential PDP prior of lmmse_exp [ns]; None -> scenario value
     ce_lmmse_prior_ds_ns: float | None = None
+    # trained models of the paper estimators (None -> <repo>/models/paper_ce)
+    ce_model_dir: str | None = None
+    # INCM estimation band of --iot-cov incm_oas [subcarriers] (EqDeepRx: 2 PRB)
+    incm_band_sc: int = 24
     carrier_frequency: float = 3.5e9
     subcarrier_spacing_khz: float = 30.0
     num_prb: int = 68
@@ -330,6 +342,8 @@ class SimConfig:
             "ce_soft_within_window": self.ce_soft_within_window,
             "ce_time_interp": self.ce_time_interp,
             "ce_lmmse_prior_ds_ns": self.ce_lmmse_prior_ds_ns,
+            "ce_model_dir": self.ce_model_dir,
+            "incm_band_sc": self.incm_band_sc,
             "carrier_frequency_hz": self.carrier_frequency,
             "subcarrier_spacing_khz": self.subcarrier_spacing_khz,
             "num_prb": self.num_prb,

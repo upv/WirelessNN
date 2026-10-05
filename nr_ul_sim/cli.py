@@ -76,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ce-soft-within-window", action="store_true",
                    help="Soft window: also zero every tap outside the hard window")
     p.add_argument("--ce-time-interp", default="linear", choices=["linear", "avg"])
+    p.add_argument("--ce-model-dir", default=None,
+                   help="Trained paper estimators (default: models/paper_ce)")
+    p.add_argument("--incm-band-sc", type=int, default=24,
+                   help="Subcarriers per INCM band for --iot-cov incm_oas")
     p.add_argument("--ce-lmmse-prior-ds-ns", type=float, default=None,
                    help="RMS delay spread of the exponential-PDP prior of lmmse_exp (default: scenario value)")
     p.add_argument("--carrier-ghz", type=float, default=3.5)
@@ -133,6 +137,8 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
         ce_soft_within_window=args.ce_soft_within_window,
         ce_time_interp=args.ce_time_interp,
         ce_lmmse_prior_ds_ns=args.ce_lmmse_prior_ds_ns,
+        ce_model_dir=args.ce_model_dir,
+        incm_band_sc=args.incm_band_sc,
         carrier_frequency=args.carrier_ghz * 1e9,
         num_prb=args.num_prb,
         fft_size=args.fft_size,
