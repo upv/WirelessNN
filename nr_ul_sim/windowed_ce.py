@@ -25,7 +25,9 @@ hard window
 soft window
     Per-tap Wiener gain ``g_k = max(P_k - a*s2, 0) / P_k`` where ``P_k`` is the
     tap power averaged over receive antennas and DMRS symbols and ``s2`` the
-    noise power per tap (``err_var / M``). ``a`` is a threshold factor that
+    disturbance power per tap (outside-window median, bounded below by
+    ``err_var / M``; ``soft_noise_mode="thermal"`` uses only the latter).
+    ``a`` is a threshold factor that
     protects against noise taps whose sample power exceeds the mean. Optionally
     the gain is applied inside the hard window only.
 """
@@ -54,6 +56,7 @@ class WindowedLSChannelEstimator(PUSCHLSChannelEstimator):
         window_pos_us: float = 3.0,
         window_neg_us: float = 1.0,
         soft_threshold: float = 1.5,
+        soft_noise_mode: str = "outside",
         soft_within_window: bool = False,
         time_interp: str = "linear",
         precision: Optional[str] = None,
@@ -75,6 +78,9 @@ class WindowedLSChannelEstimator(PUSCHLSChannelEstimator):
         if time_interp not in ("linear", "avg"):
             raise ValueError("time_interp must be 'linear' or 'avg'")
         self.mode = mode
+        if soft_noise_mode not in ("outside", "thermal"):
+            raise ValueError("soft_noise_mode must be 'outside' or 'thermal'")
+        self.soft_noise_mode = soft_noise_mode
         self.soft_threshold = float(soft_threshold)
         self.soft_within_window = bool(soft_within_window)
         self.time_interp = time_interp
@@ -173,6 +179,17 @@ class WindowedLSChannelEstimator(PUSCHLSChannelEstimator):
         m = taps.shape[-1]
         power = taps.abs().square().mean(dim=(1, 2, 5), keepdim=True)
         noise = (err_p.mean(dim=(1, 2, 5), keepdim=True) / m).expand_as(power)
+        if self.mode == "soft" and self.soft_noise_mode == "outside":
+            outside = self._window == 0
+            if int(outside.sum()) >= 8:
+                # Median resists a few leaking channel taps. Each power is
+                # averaged over K complex samples (Gamma(K)); correct its
+                # median with the Wilson-Hilferty approximation. Correlated
+                # antennas/DMRS make this calibration approximate.
+                k = taps.shape[1] * taps.shape[2] * taps.shape[5]
+                correction = (1.0 - 1.0 / (9.0 * k)) ** 3
+                floor = power[..., outside].quantile(0.5, dim=-1, keepdim=True) / correction
+                noise = torch.maximum(noise, floor)
         return power, noise
 
     def _tap_gains(self, taps: torch.Tensor, err_p: torch.Tensor) -> torch.Tensor:

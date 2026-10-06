@@ -126,6 +126,7 @@ def build_estimator(name: str, transmitter, cfg: SimConfig):
         return WindowedLSChannelEstimator(
             *args,
             mode=WINDOW_MODE[name],
+            soft_noise_mode=cfg.ce_soft_noise_mode,
             window_pos_us=cfg.ce_window_pos_us,
             window_neg_us=cfg.ce_window_neg_us,
             soft_threshold=cfg.ce_soft_threshold,

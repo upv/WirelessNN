@@ -246,3 +246,40 @@ python -m pytest tests
 ```
 
 `tests/test_physics.py` checks every block on its own at 68 PRB (TB size against 38.214, DMRS layout and power, channel energy, delay spread, Jakes time correlation, frequency and spatial correlation, noise and INR calibration, covariance estimators, receiver identities such as IRC ≡ L-MMSE without interference), `tests/test_windowed_ce.py` the delay-domain estimators, the rest the CLI, metrics, plots and the dataset builder.
+
+## Measured-covariance IRC and interference-aware soft window
+
+`irc_real` always estimates the interference-plus-noise covariance from the
+received DMRS residual, using a dedicated `ls_soft_window` estimate and per-band
+OAS shrinkage. It never uses true serving/interferer channels for covariance,
+even with `--perfect-csi` (which still makes detector CSI genie-aided).
+`irc` retains the covariance selected by `--iot-cov`; its default is perfect.
+Compare both receivers on the same slots:
+
+```bash
+python -m nr_ul_sim --channel cdl-c --receivers lmmse,irc,irc_real \
+    --estimators ls_soft_window --iot-db 0,10,20 --snr-db=-4:20:2
+```
+
+`--incm-band-sc 24` controls the covariance frequency bands. The realistic
+receiver uses known thermal N0, ideal synchronization and the simulated DMRS
+layout; residual fitting can suppress observed interference, while channel
+estimation errors can inflate it. It is a practical covariance baseline,
+not a complete hardware receiver model or a guaranteed ordering against IRC.
+
+Soft window now estimates the tap disturbance floor by a median of the power
+outside the configured delay window, corrected for averaging across antennas
+and DMRS symbols, and bounded below by the thermal LS variance. The same floor
+is used for Wiener gains and reported error variance. It does not read IoT or
+true channels. Long channel tails and correlated disturbances can bias this
+estimate; when fewer than eight outside taps exist it falls back to thermal.
+`--ce-soft-noise-mode thermal` reproduces the previous algorithm for comparisons.
+
+Reproduce the paired 68-PRB, fixed-64-slot comparison (CDL-C / UMa, IoT 0/10/20):
+
+```bash
+python scripts/campaigns/benchmark_irc_real.py --outdir results/irc_real_comparison
+```
+
+This writes raw BER/BLER counts and `comparison.png`. The coarse SNR grid is
+for regression checks; refine near the target before quoting working-point gains.

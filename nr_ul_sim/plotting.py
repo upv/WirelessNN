@@ -19,6 +19,7 @@ RECEIVER_STYLE = {
     "ideal_mmse": dict(color="#9d755d", marker="P", ls="--", label="Ideal MMSE"),
     "zf": dict(color="#54a24b", marker="^", label="ZF"),
     "irc": dict(color="#e45756", marker="D", label="IRC"),
+    "irc_real": dict(color="#665191", marker="s", label="IRC (DMRS + OAS)"),
     "perfect": dict(color="#9d755d", marker="P", ls="--", label="Perfect CSI"),
     "ls_nn": dict(color="#4c78a8", marker="o", label="LS-NN"),
     "ls_lin": dict(color="#f58518", marker="s", label="LS-linear"),
@@ -43,7 +44,8 @@ def _style_for(name: str) -> dict:
     if name in RECEIVER_STYLE:
         return RECEIVER_STYLE[name]
     # receiver_estimator keys of a joint sweep
-    for rx, style in RECEIVER_STYLE.items():
+    for rx in sorted(RECEIVER_STYLE, key=len, reverse=True):
+        style = RECEIVER_STYLE[rx]
         if name.startswith(rx + "_"):
             est = name[len(rx) + 1 :]
             est_style = RECEIVER_STYLE.get(est, {})

@@ -107,11 +107,15 @@ def test_soft_window_gain_reacts_to_snr():
     """More taps survive the Wiener threshold as the SNR grows."""
     kept = {}
     for snr in (-5.0, 25.0):
-        slot = _slot(_cfg(snr), snr)[1]
-        _, err = slot["csi"]["ls_soft_window"]
-        # err_var = pilot variance * mean(g^2); |p|^2 = 2, two pilots averaged -> no / 4
-        pilot_var = float(slot["no"]) / 4.0
-        kept[snr] = err[..., 2, :].mean().item() / pilot_var
+        sim, slot = _slot(_cfg(snr), snr)
+        est = sim.rx.estimators["ls_soft_window"]
+        hp, ep = est.estimate_at_pilot_locations(est._extract_pilots(slot["y"]), slot["no"])
+        ep = torch.broadcast_to(ep, hp.shape)
+        taps = torch.fft.ifft(est._block_estimates(hp), dim=-1)
+        gain = est._tap_gains(taps, est._block_estimates(ep.to(hp.dtype)).real)
+        # Measure surviving gains directly: reported MSE now includes an
+        # empirical disturbance floor and removed channel energy as well.
+        kept[snr] = gain.square().mean().item()
     assert kept[-5.0] < 0.25
     assert kept[25.0] > 2 * kept[-5.0]
     assert kept[25.0] <= 1.0

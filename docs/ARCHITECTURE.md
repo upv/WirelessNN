@@ -61,7 +61,7 @@ from a plain checkout; `pip install -e .` makes `nr_ul_sim` importable from anyw
 | `channel_estimation.py` | `build_estimator(name, …)`: Sionna LS / LMMSE with their priors, or one of the two modules below |
 | `windowed_ce.py` | LS + hard / soft window in the delay domain |
 | `paper_ce.py` | EqDeepRx (`ls_fir`, `denoise_nn`), data-covariance LMMSE, A-MMSE / RA-A-MMSE; loads `models/paper_ce` |
-| `receivers.py` | `PuschRx`: estimators, one `LinearDetector` per receiver (IRC = `ExtraCovarianceLMMSE`), layer demapper, TB decoder |
+| `receivers.py` | `PuschRx`: estimators, one `LinearDetector` per receiver (`irc` and `irc_real` share `ExtraCovarianceLMMSE`), layer demapper, TB decoder |
 | `simulator.py` | `NRUplinkSimulator`: the slot stages, the Monte-Carlo loop, the sweep |
 | `metrics.py` | `ErrorStats`, `SweepResult`, `working_point_snr` |
 | `plotting.py` | campaign figures and the shared `RECEIVER_STYLE` |
@@ -89,8 +89,9 @@ Built on the simulator:
 4. `serving_plus_interference` — interferers scaled to the total INR, white noise
    `N0 = 10^(-SNR/10)` added.
 5. `estimate_csi` — every configured estimator on the same received grid.
-6. `detect` — for every `(result key, receiver, estimator)`: set the IRC covariance,
-   equalise, demap (max-log), layer-demap, LDPC-decode, count errors.
+6. `detect` — for every `(result key, receiver, estimator)`: set the IRC covariance
+   (`irc`: by `iot_cov`; `irc_real`: measured on the received DMRS), equalise, demap
+   (max-log), layer-demap, LDPC-decode, count errors.
 
 It stops early once every curve has `num_target_bit_errors` bit errors and
 `num_target_block_errors` block errors.
@@ -106,6 +107,7 @@ The **slot dict** passed between the stages:
 | `csi` | `estimate_csi` | `{estimator: (h_hat, err_var)}`, `h_hat [B, 1, RX ant, UE, stream, symbol, used subcarrier]` |
 | `h_perf` | `estimate_csi` | true channel in the layout of `h_hat` (precoding and power scale applied) |
 | `h_hat`, `err_var` | `estimate_csi` | the first non-perfect estimate (kept for older callers) |
+| `real_cov_csi`, `real_covariance` | `detect` (`irc_real`) | soft-window estimate and per-band DMRS-residual covariance measured on `y` alone, cached per slot |
 
 ## Conventions
 

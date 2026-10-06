@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-06 — measured-covariance IRC and empirical soft-window background
+
+- New `irc_real`: received-DMRS-only soft-window CSI for per-band OAS residual
+  covariance, cached per slot, separate from detector CSI and `--iot-cov`.
+- Soft window uses robust out-of-window tap power to estimate disturbances;
+  `ce_soft_noise_mode="thermal"` retains the old algorithm.
+- Receiver/config/CLI/plot registration and tests for no true-channel covariance
+  access, positive covariance, noise calibration and fallback.
+- BER search stopping rules unchanged; exact equality to the threshold is not
+  an appropriate stopping condition for Monte Carlo measurements.
+- `SimConfig.receivers` and `--receivers` default to all receivers, which now
+  includes `irc_real`; the dataset builder and the random-channel campaign keep
+  their explicit receiver lists.
+
+### Verification (RTX PRO 6000, CUDA)
+
+- 112 tests pass.
+- With `ce_soft_noise_mode="thermal"` and `irc_real` left out, the fixed-seed
+  snapshot of the sweeps, the CLI, the dataset builder and the random-channel
+  campaign is identical to the previous commit: nothing else changed.
+- Soft-window NMSE at 68 PRB, 16 slots per point, old → new mode. With
+  interference the new floor gains 5–12 dB (CDL-C, 1 UE, IoT 10 dB: SNR 5 dB
+  −2.7 → −10.3, SNR 15 dB −12.4 → −17.2; IoT 20 dB: SNR 15 dB −2.0 → −10.8).
+  Without interference it costs up to 3 dB at high SNR, because the band-limited
+  leakage of the channel taps sets the out-of-window median above the thermal
+  floor (CDL-C, IoT 0: SNR 15 dB −22.7 → −21.7, SNR 25 dB −27.2 → −24.1; CDL-B:
+  SNR 25 dB −27.5 → −24.4; UMa 2 UE: SNR 25 dB −21.2 → −20.5).
+- `ls_soft_window` results of the 2026-09-30 and 2026-10-05 campaigns are
+  reproduced with `--ce-soft-noise-mode thermal` only.
+
 ## 2026-10-05 — project layout, starter files, tutorial (no change in results)
 
 Refactoring only: the simulator produces bit-identical numbers. Checked with the test

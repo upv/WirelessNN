@@ -117,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--mcs-table", type=int, default=None, help="Override the preset MCS table")
 
     g = p.add_argument_group("receiver")
-    g.add_argument("--receivers", default="mr,lmmse,ideal_mmse,zf,irc",
+    g.add_argument("--receivers", default=",".join(RECEIVERS),
                    help="Comma list: " + ",".join(RECEIVERS))
     g.add_argument("--estimators", default="ls_lin", dest="channel_estimators",
                    help="Comma list: " + ",".join(CHANNEL_ESTIMATORS))
@@ -135,6 +135,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Delay-domain window before the first tap [us] (windowed CE)")
     g.add_argument("--ce-soft-threshold", type=float, default=1.5,
                    help="Soft window: tap kept when its power exceeds this multiple of the noise")
+    g.add_argument("--ce-soft-noise-mode", default="outside", choices=["outside", "thermal"],
+                   help="Soft window: estimate noise+interference outside delay window, or old thermal-only mode")
     g.add_argument("--ce-soft-within-window", action="store_true",
                    help="Soft window: also zero every tap outside the hard window")
     g.add_argument("--ce-time-interp", default="linear", choices=["linear", "avg"],
@@ -220,6 +222,7 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
         ce_window_pos_us=args.ce_window_pos_us,
         ce_window_neg_us=args.ce_window_neg_us,
         ce_soft_threshold=args.ce_soft_threshold,
+        ce_soft_noise_mode=args.ce_soft_noise_mode,
         ce_soft_within_window=args.ce_soft_within_window,
         ce_time_interp=args.ce_time_interp,
         ce_lmmse_prior_ds_ns=args.ce_lmmse_prior_ds_ns,

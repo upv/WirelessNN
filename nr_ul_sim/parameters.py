@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 
-RECEIVERS = ("mr", "lmmse", "ideal_mmse", "zf", "irc")
+RECEIVERS = ("mr", "lmmse", "ideal_mmse", "zf", "irc", "irc_real")
 RECEIVER_ALIASES = {
     "mmse_ideal": "ideal_mmse",
     "lmmse_ideal": "ideal_mmse",
@@ -27,6 +27,7 @@ RECEIVER_INFO = {
     "ideal_mmse": "the lmmse combiner with the true channel (genie bound)",
     "zf": "zero forcing among the co-scheduled layers",
     "irc": "MMSE with S = R_iot + N0 I; rejects coloured other-cell interference",
+    "irc_real": "IRC with per-band OAS DMRS residual covariance from soft-window CSI (no true channels)",
 }
 CHANNELS = ("cdl-b", "cdl-c", "cdl-d", "umi", "uma")
 CHANNEL_INFO = {
@@ -229,6 +230,7 @@ class SimConfig:
     ce_window_pos_us: float = 3.0
     ce_window_neg_us: float = 1.0
     ce_soft_threshold: float = 1.5
+    ce_soft_noise_mode: str = "outside"     # empirical background; thermal reproduces old runs
     ce_soft_within_window: bool = False
     ce_time_interp: str = "linear"
     # RMS delay spread of the exponential PDP prior of lmmse_exp [ns]; None -> scenario value
@@ -290,6 +292,10 @@ class SimConfig:
             raise ValueError(f"tx_power_norm must be one of {TX_POWER_NORMS}")
         if self.ce_time_interp not in ("linear", "avg"):
             raise ValueError("ce_time_interp must be 'linear' or 'avg'")
+        if self.ce_soft_noise_mode not in ("outside", "thermal"):
+            raise ValueError("ce_soft_noise_mode must be 'outside' or 'thermal'")
+        if self.incm_band_sc < 1:
+            raise ValueError("incm_band_sc must be positive")
         if self.ce_window_pos_us < 0 or self.ce_window_neg_us < 0:
             raise ValueError("CE window lengths must be non-negative")
         unknown = [r for r in self.receivers if r not in RECEIVERS]
@@ -401,6 +407,7 @@ class SimConfig:
             "ce_window_pos_us": self.ce_window_pos_us,
             "ce_window_neg_us": self.ce_window_neg_us,
             "ce_soft_threshold": self.ce_soft_threshold,
+            "ce_soft_noise_mode": self.ce_soft_noise_mode,
             "ce_soft_within_window": self.ce_soft_within_window,
             "ce_time_interp": self.ce_time_interp,
             "ce_lmmse_prior_ds_ns": self.ce_lmmse_prior_ds_ns,

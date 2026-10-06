@@ -97,10 +97,18 @@ class PuschRx:
             name: build_estimator(name, transmitter, cfg)
             for name in cfg.channel_estimators
         }
+        # irc_real measures its covariance on a soft-window estimate of its own,
+        # whatever CSI the detector uses; reuse the configured one if there is one.
+        self.real_cov_estimator = None
+        if "irc_real" in cfg.receivers:
+            if "ls_soft_window" in self.estimators:
+                self.real_cov_estimator = self.estimators["ls_soft_window"]
+            else:
+                self.real_cov_estimator = build_estimator("ls_soft_window", transmitter, cfg)
         self.detectors = {}
         for name in cfg.receivers:
             self.detectors[name] = LinearDetector(
-                equalizer=self.irc_eq if name == "irc" else EQUALIZER_BY_NAME[name],
+                equalizer=self.irc_eq if name in ("irc", "irc_real") else EQUALIZER_BY_NAME[name],
                 output="bit",
                 demapping_method="maxlog",
                 resource_grid=transmitter.resource_grid,

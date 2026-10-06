@@ -124,7 +124,7 @@ command-line options map onto its fields one to one. The most used ones:
 | `snr_db` | `--snr-db` | −20…30 step 2 | list, or `start:stop:step` on the command line |
 | `iot_db` | `--iot-db` | `[0]` (CLI: 0,10,20) | interference levels, one sweep each |
 | `num_interferers` | `--num-interferers` | 2 | interfering UEs sharing the IoT power |
-| `receivers` | `--receivers` | all five | `mr`, `zf`, `lmmse`, `ideal_mmse`, `irc` |
+| `receivers` | `--receivers` | all six | `mr`, `zf`, `lmmse`, `ideal_mmse`, `irc`, `irc_real` |
 | `channel_estimators` | `--estimators` | `ls_lin` | see [section 6](#6-channel-estimators) |
 | `iot_cov` | `--iot-cov` | `perfect` | how IRC obtains the interference covariance |
 | `num_prb` / `fft_size` | `--num-prb` / `--fft-size` | 68 / 1024 | allocation and FFT size |
@@ -143,7 +143,7 @@ saying what is allowed.
 python examples/03_receivers_vs_interference.py
 ```
 
-compares the five receivers at IoT 0 and 10 dB with two co-scheduled UEs.
+compares the five classic receivers at IoT 0 and 10 dB with two co-scheduled UEs.
 
 | Receiver | Combiner | Notes |
 | --- | --- | --- |
@@ -151,7 +151,8 @@ compares the five receivers at IoT 0 and 10 dB with two co-scheduled UEs.
 | `zf` | zero forcing | removes the co-scheduled layers, amplifies noise |
 | `lmmse` | MMSE with `S = N0·I` | other-cell interference is treated as white noise |
 | `ideal_mmse` | same, with the true channel | genie bound for `lmmse` |
-| `irc` | MMSE with `S = R_iot + N0·I` | the only one that rejects *coloured* interference |
+| `irc` | MMSE with `S = R_iot + N0·I` | the only one that rejects *coloured* interference; `R_iot` from `iot_cov` |
+| `irc_real` | the same combiner | `R_iot` always measured on the received DMRS (soft-window CSI of its own, per-band OAS shrinkage); never sees the true channels, even with `--perfect-csi` |
 
 Without other-cell interference IRC and L-MMSE are the same receiver. With it, IRC
 gains as long as the interference occupies fewer spatial directions than there are
@@ -163,6 +164,10 @@ spare antennas. How IRC gets `R_iot` is chosen with `iot_cov`:
 | `residual` | covariance of `y − Ĥp` on the DMRS symbols, minus `N0·I` | yes |
 | `incm_oas` | the same residual per 2 PRB, shrunk towards a scaled identity (EqDeepRx) | yes, frequency selective |
 | `estimated` | covariance of the whole received grid minus `N0·I` | contains the serving signal; kept for comparison |
+
+`irc_real` ignores `iot_cov`: it is the `incm_oas` path with its own channel estimate,
+so `--receivers lmmse,irc,irc_real` compares the genie, the chosen method and the
+fully measured receiver on the same slots.
 
 ## 6. Channel estimators
 
@@ -178,7 +183,7 @@ measures the channel-estimation NMSE and the working-point loss against perfect 
 | `ls_nn`, `ls_lin`, `ls_lin_time_avg` | DMRS least squares, nearest / linear / linear + time-average interpolation |
 | `lmmse_ce` | LMMSE with a TDL prior matched to the scenario — a genie prior on CDL |
 | `lmmse_exp` | LMMSE with an exponential-PDP prior — what a real receiver can assume |
-| `ls_hard_window`, `ls_soft_window` | LS denoised in the delay domain: rectangular window, or per-tap Wiener weights |
+| `ls_hard_window`, `ls_soft_window` | LS denoised in the delay domain: rectangular window, or per-tap Wiener weights. The soft window takes its disturbance floor from the taps outside the window (`--ce-soft-noise-mode outside`, default: follows interference) or from the thermal noise only (`thermal`, the pre-2026-10-06 behaviour) |
 | `ls_fir` | LS + a static 17-tap frequency FIR (EqDeepRx baseline) |
 | `denoise_nn` | EqDeepRx DenoiseNN — trained |
 | `lmmse_data`, `lmmse_data_1d` | LMMSE with a covariance measured on training channels — trained |
@@ -311,9 +316,10 @@ not individual error counts, across machines.
 3. construct it in `build_estimator` in `nr_ul_sim/channel_estimation.py`;
 4. give it a colour and label in `RECEIVER_STYLE` in `nr_ul_sim/plotting.py`.
 
-**A receiver** needs a name in `RECEIVERS`, an equaliser in `EQUALIZER_BY_NAME`
-(`nr_ul_sim/receivers.py`) — a Sionna equaliser name or a callable like
-`ExtraCovarianceLMMSE` — and a plot style.
+**A receiver** needs a name in `RECEIVERS` (and `RECEIVER_INFO`), an equaliser in
+`EQUALIZER_BY_NAME` (`nr_ul_sim/receivers.py`) — a Sionna equaliser name or a callable
+like `ExtraCovarianceLMMSE` — and a plot style. A receiver that needs per-slot side
+information gets a branch in `NRUplinkSimulator.detect`, as `irc` and `irc_real` do.
 
 **A channel model**: return a Sionna `ChannelModel` from
 `NRUplinkSimulator._make_model`, or subclass the simulator and override it, as

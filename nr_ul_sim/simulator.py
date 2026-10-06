@@ -214,7 +214,23 @@ class NRUplinkSimulator:
         else:
             h_hat, err_var = slot["h_hat"], slot["err_var"]
 
-        if receiver_name == "irc":
+        if receiver_name == "irc_real":
+            # Cache received-signal-only CSI independently of the detector's
+            # estimator, including when the detector is genie-aided.
+            if "real_cov_csi" not in slot:
+                if "ls_soft_window" in slot.get("csi", {}):
+                    slot["real_cov_csi"] = slot["csi"]["ls_soft_window"][0]
+                else:
+                    slot["real_cov_csi"] = self.rx.real_cov_estimator(y, no)[0]
+            if "real_covariance" not in slot:
+                slot["real_covariance"] = irc_interference_covariance(
+                    None, y, no, 0.0, method="incm_oas",
+                    h_hat=slot["real_cov_csi"], pilot_grid=self.rx.pilot_grid,
+                    dmrs_syms=self.rx.dmrs_syms, guard_carriers=self.cfg.guard_carriers,
+                    band_sc=self.cfg.incm_band_sc,
+                )
+            self.rx.irc_eq.set_covariance(slot["real_covariance"])
+        elif receiver_name == "irc":
             self.rx.irc_eq.set_covariance(
                 irc_interference_covariance(
                     slot["h_int"], y, no, slot["iot_db"], method=self.cfg.iot_cov,
