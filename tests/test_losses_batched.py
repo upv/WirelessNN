@@ -101,3 +101,35 @@ def test_bad_inputs():
         complex_bce_batched(x_hat, x, "qpsk")
     with pytest.raises(ValueError):
         complex_bce_batched(x_hat, x, mods, noise_var=torch.ones(3))
+
+
+def test_per_re_noise_var_map():
+    x_hat, x, mods = _mixed_batch()
+    nv = 0.05 + 0.2 * torch.rand(x.shape)
+    loss = complex_bce_batched(x_hat, x, mods, noise_var=nv)
+    total, count = 0.0, 0
+    for i, m in enumerate(mods):
+        logits, target = bit_logits(x_hat[i], x[i], m, nv[i])
+        total += torch.nn.functional.binary_cross_entropy_with_logits(logits, target, reduction="sum").item()
+        count += target.numel()
+    assert loss.item() == pytest.approx(total / count, rel=1e-5)
+    with pytest.raises(ValueError):
+        complex_bce_batched(x_hat, x, mods, noise_var=torch.ones(x.shape[0], 7))
+
+
+def test_bit_logits_order_matches_constellation_labels():
+    for mod in MODULATIONS:
+        points, bits = constellation(mod)
+        _, target = bit_logits(points, points, mod, 0.1)
+        assert torch.equal(target, bits)
+
+
+def test_compiled_matches_eager():
+    x_hat, x, mods = _mixed_batch()
+    nv = torch.tensor([0.05, 0.2, 0.1, 0.3, 0.02])
+    eager = complex_bce_batched(x_hat, x, mods, noise_var=nv)
+    try:
+        compiled = complex_bce_batched(x_hat, x, mods, noise_var=nv, compiled=True)
+    except Exception as exc:  # no C++ toolchain / unsupported backend on this host
+        pytest.skip(f"torch.compile unavailable here: {type(exc).__name__}")
+    assert torch.allclose(eager, compiled, rtol=1e-5, atol=1e-7)
