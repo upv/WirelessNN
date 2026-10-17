@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-17 — per-UE delay-spread prior in the random-channel campaign
+
+- `random_campaign.run_config` sets the `lmmse_ce` / `lmmse_exp` delay-spread prior to the
+  maximum over the UEs (`prior_delay_spread_ns`) instead of UE 0's, as already done for
+  speed. Sionna's LMMSE estimator shares one covariance across streams, so UE 0's value
+  over-smoothed UE 1 whenever UE 1 had the longer channel. `prior_ds_ns` in campaign
+  records changes accordingly for 2-UE configurations; 1-UE results are unchanged.
+
 ## 2026-10-06 — measured-covariance IRC and empirical soft-window background
 
 - New `irc_real`: received-DMRS-only soft-window CSI for per-band OAS residual
@@ -165,7 +173,7 @@ Results in `/root/reports/random_ch_2026-09-30/report/REPORT.md` (outside the re
 
 ### Known issues (not fixed yet)
 
-- `random_campaign.run_config` gives `lmmse_ce` the delay spread of UE 0 only; Sionna's
+- (Fixed 2026-10-17.) `random_campaign.run_config` gives `lmmse_ce` the delay spread of UE 0 only; Sionna's
   LMMSE estimator uses one covariance for all streams, so with 2 UEs the prior is wrong
   for UE 1 (working point not reached in 41 % of configurations where UE 1 has more than
   twice the delay spread of UE 0, 6 % with 1 UE). Use the maximum over the UEs.

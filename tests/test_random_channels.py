@@ -3,7 +3,14 @@ import pytest
 
 from nr_ul_sim.paper_ce import DEFAULT_MODEL_DIR
 from nr_ul_sim.parameters import CHANNEL_ESTIMATORS
-from nr_ul_sim.random_campaign import CELLS, parse_estimators, plan_configs, run_config, start_snr
+from nr_ul_sim.random_campaign import (
+    CELLS,
+    parse_estimators,
+    plan_configs,
+    prior_delay_spread_ns,
+    run_config,
+    start_snr,
+)
 from nr_ul_sim.random_channels import (
     circular_mean_spread,
     linear_mean_spread,
@@ -103,6 +110,13 @@ def test_parse_estimators():
     assert parse_estimators("a_mmse, ls_lin,perfect,a_mmse") == ("perfect", "a_mmse", "ls_lin")
     with pytest.raises(ValueError, match="nope"):
         parse_estimators("ls_lin,nope")
+
+
+def test_delay_spread_prior_covers_every_ue():
+    # UE 1 has the longer channel: the shared LMMSE prior must not take UE 0's
+    assert prior_delay_spread_ns([{"ds_ns": 40.0}, {"ds_ns": 350.0}]) == 350.0
+    assert prior_delay_spread_ns([{"ds_ns": 120.0}]) == 120.0
+    assert prior_delay_spread_ns([{"lsp_ds_ns": 300.0}, {"lsp_ds_ns": 90.0}]) == 300.0
 
 
 @pytest.mark.skipif(not (DEFAULT_MODEL_DIR / "a_mmse.pt").exists(), reason="run scripts/training/train_paper_ce.py first")
