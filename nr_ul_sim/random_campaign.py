@@ -97,6 +97,16 @@ class RandomChannelSimulator(NRUplinkSimulator):
         """The drop is fixed for the whole configuration: nothing to redraw."""
 
 
+def prior_delay_spread_ns(ue_info: list[dict]) -> float:
+    """Delay-spread prior for lmmse_ce / lmmse_exp: the maximum over the UEs.
+
+    Sionna's LMMSE estimator uses one covariance for every stream, so the prior has to
+    cover the UE with the longest channel; a long prior only costs a little noise, a short
+    one over-smooths the channel. CDL links carry ``ds_ns``, UMi/UMa drops ``lsp_ds_ns``.
+    """
+    return float(max(u["ds_ns"] if "ds_ns" in u else u["lsp_ds_ns"] for u in ue_info))
+
+
 def _f(x) -> float:
     return float(x.detach().cpu()) if torch.is_tensor(x) else float(x)
 
@@ -218,15 +228,13 @@ def run_config(row: dict, *, num_prb: int = 16, fft_size: int = 1024, batch_size
             arrays.update({f"ue{i}_{k}": np.asarray(v) for k, v in a.items()})
         for i, a in enumerate(int_arr):
             arrays.update({f"int{i}_{k}": np.asarray(v) for k, v in a.items()})
-        ds_ue0_ns = ue_links[0]["ds_ns"]
     else:
         serving, ue_info, ue_arr = build_frozen_system_level(cfg, num_ue, rng)
         interf, int_info, int_arr = (
             build_frozen_system_level(cfg, num_int, rng) if num_int else (None, [], {}))
         arrays.update({f"ue_{k}": v for k, v in ue_arr.items()})
         arrays.update({f"int_{k}": v for k, v in (int_arr or {}).items()})
-        ds_ue0_ns = ue_info[0]["lsp_ds_ns"]
-    cfg.delay_spread_ns = float(ds_ue0_ns)              # prior of lmmse_ce / lmmse_exp (CDL)
+    cfg.delay_spread_ns = prior_delay_spread_ns(ue_info)  # prior of lmmse_ce / lmmse_exp (CDL)
     cfg.speed_kmh = float(max(u["speed_kmh"] for u in ue_info))
 
     sim = RandomChannelSimulator(cfg, serving, interf)
