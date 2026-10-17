@@ -55,7 +55,11 @@ link-level sweep results.
 
 Related work: [SVD Lab](https://github.com/upv/Pavel-s_SVD), a numerical algorithm
 and GPU benchmarking laboratory.
-Link-level uplink simulator for 5up_env.sh                                  # .venv, dependencies, installation check
+
+## Start here
+
+```bash
+scripts/setup_env.sh                                  # .venv, dependencies, installation check
 source .venv/bin/activate
 python examples/01_quickstart.py                      # first SNR sweep, edit the knobs on top
 python examples/02_one_slot_step_by_step.py           # what happens inside one slot
@@ -333,3 +337,4 @@ python scripts/campaigns/benchmark_irc_real.py --outdir results/irc_real_compari
 
 This writes raw BER/BLER counts and `comparison.png`. The coarse SNR grid is
 for regression checks; refine near the target before quoting working-point gains.
+
