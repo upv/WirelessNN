@@ -1,11 +1,61 @@
-# WirelessNN — 5G NR PUSCH uplink simulator
+# WirelessNN — 5G NR Uplink Receiver & Channel Estimation Research
 
-Link-level uplink simulator for 5G NR PUSCH, built on [NVIDIA Sionna](https://nvlabs.github.io/sionna/) PHY (v2, PyTorch). It sweeps **per-antenna SNR**, compares **MR / L-MMSE / Ideal MMSE / ZF / IRC**, injects **other-cell IoT**, and reports the **working point** (SNR where BER = 0.01).
+A link-level research simulator for evaluating **5G NR PUSCH receiver algorithms,
+channel estimation and interference rejection**. Built on
+[NVIDIA Sionna](https://nvlabs.github.io/sionna/) PHY (v2, PyTorch), it connects
+algorithm choices to coded BER/BLER and the SNR needed to reach a target error rate.
 
-## Start here
+Use it to compare classical and learned channel estimators, separate estimation
+loss from detection performance, and investigate how conclusions change across
+channels, user ranks and interference levels.
 
-```bash
-scripts/setup_env.sh                                  # .venv, dependencies, installation check
+## Research questions this project addresses
+
+| Question | Evidence produced |
+| --- | --- |
+| How much performance is lost with estimated rather than perfect CSI? | BER/BLER curves and working-point gaps under matched scenarios |
+| When does interference rejection help? | MR, ZF, L-MMSE and IRC comparisons, including measured-covariance `irc_real` |
+| Do learned estimators generalize beyond their training channels? | Comparisons with LS, windowed and LMMSE baselines on UMa, UMi and CDL channels |
+| Can simulation outputs support working-point prediction? | Channel tensors, scenario metadata, labels and regression baselines |
+
+The **working point** is the SNR where coded BER reaches 0.01 or BLER reaches 0.1.
+SNR is defined per receive antenna and resource element; the conventions and
+limitations below are part of every comparison.
+
+## Evidence and how to review it
+
+- **Campaign results:** the [research log](CHANGELOG.md) records a
+  5,000-configuration, 16-PRB channel-estimator campaign, comparisons of 14
+  estimators and the conditions where methods fail to reach the target.
+- **Physical validation:** [physics checks](scripts/physics_checks.py) and
+  [tests](tests/) cover channel statistics, power/noise calibration, DMRS and
+  receiver identities.
+- **Reproducibility:** [campaign scripts](scripts/campaigns/), saved scenario
+  parameters, seeded working-point searches and JSON outputs support repeatable
+  comparisons.
+- **Implementation:** start with the [tutorial](docs/TUTORIAL.md) and
+  [architecture](docs/ARCHITECTURE.md) for the processing chain and tensor conventions.
+
+Campaign findings are specific to their recorded setup and revision. In particular,
+older soft-window results require `--ce-soft-noise-mode thermal` to reproduce.
+Some complete campaign reports are referenced by server-local paths in the
+research log and are not included in this repository.
+
+**Scope:** this is a frequency-domain research simulator with ideal synchronization,
+not a complete hardware receiver. IRC uses perfect interference covariance by
+default; use the documented measured-covariance variants for that comparison.
+The research log also documents a power/INR normalization discrepancy in the
+frozen-channel dataset path; review that issue before combining its labels with
+link-level sweep results.
+
+## Author and contact
+
+[Pavel Uydanov](https://github.com/upv) ·
+[LinkedIn — project and R&D enquiries](https://www.linkedin.com/in/pavel-uydanov/)
+
+Related work: [SVD Lab](https://github.com/upv/Pavel-s_SVD), a numerical algorithm
+and GPU benchmarking laboratory.
+Link-level uplink simulator for 5up_env.sh                                  # .venv, dependencies, installation check
 source .venv/bin/activate
 python examples/01_quickstart.py                      # first SNR sweep, edit the knobs on top
 python examples/02_one_slot_step_by_step.py           # what happens inside one slot
