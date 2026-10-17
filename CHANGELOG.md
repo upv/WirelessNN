@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-17 — dataset version 2: frozen-channel power convention
+
+- `DatasetConfig.dataset_version` / `--dataset-version` (default 2). Version 2
+  makes `FrozenChannelSimulator.generate_slot` follow `NRUplinkSimulator`: unit
+  total power per UE (`layer_power_scale`, rank 2 sends half the power per layer)
+  and interference scaled by `num_interferer_streams`, so the total INR per
+  receive antenna is `iot_db`. Version 1 keeps the old scaling bit for bit, to
+  reproduce or extend existing datasets. Fixes the issue listed under "Found
+  during the review" in the 2026-10-06 entry.
+- Rank 1 with one interferer stream (one interferer, one UE antenna) is
+  unchanged. Rank 2 receives 3 dB less serving power per layer than in version 1,
+  and the interference drops by `10 log10(num_interferers x num_ue_ant)` dB, so
+  working points of those scenarios shift (not measured yet).
+- Every record, `meta.json` and `dataset.npz` store `dataset_version`; records
+  without it count as version 1. `resume` refuses a run with another version and
+  `pack_dataset` (and so `scripts/dataset/merge_shards.py`) refuses mixed versions.
+- Existing datasets are not regenerated.
+
 ## 2026-10-06 — measured-covariance IRC and empirical soft-window background
 
 - New `irc_real`: received-DMRS-only soft-window CSI for per-band OAS residual

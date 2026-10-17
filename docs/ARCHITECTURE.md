@@ -133,7 +133,7 @@ The **slot dict** passed between the stages:
 | Class | Channel per Monte-Carlo iteration | Used by |
 | --- | --- | --- |
 | `NRUplinkSimulator` | new realisation (and new UMi/UMa drop) every batch | sweeps, CLI |
-| `FrozenChannelSimulator` (`dataset.py`) | one stored realisation reused in every slot | working-point dataset |
+| `FrozenChannelSimulator` (`dataset.py`) | one stored realisation reused in every slot; `dataset_version` 2 uses the simulator's power convention, 1 the legacy one | working-point dataset |
 | `RandomChannelSimulator` (`random_campaign.py`) | new fading on a fixed, per-configuration random large-scale channel | random-channel campaign |
 
 Two working-point searches exist for the same reason: `dataset.search_working_point`
