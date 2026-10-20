@@ -150,7 +150,7 @@ as the paper says, and does not beat `lmmse_data`. RA-A-MMSE with rank 6 loses
 
 ### Random-channel campaign, 5000 configurations (16 PRB, IRC, BER = 1e-2)
 
-Results in `/root/reports/random_ch_2026-09-30/report/REPORT.md` (outside the repository).
+Results in `reports/random_ch_2026-09-30/report/REPORT.md` (outside the repository).
 
 - All 5000 configurations finished, no runtime errors. Every working point is reproduced
   exactly from the stored BER curves; a dense re-simulation of 16 configurations gives a

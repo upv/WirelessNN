@@ -8,8 +8,8 @@
 а не оценка предела достижимого качества нейросети.
 
 Генератор, PyTorch-загрузчик, MSE/BCE losses, анализ и инструкция находятся
-в этой папке. Данные сохранены на **yadro / parfen**:
-`/home/debian/WirelessNN/experiments/ce_denoising/data/pilot_16prb`.
+в этой папке. Данные сохранены на **compute server**:
+`experiments/ce_denoising/data/pilot_16prb`.
 Схема массивов и команды — в [README.md](README.md).
 
 ## Состав и проверка датасета
