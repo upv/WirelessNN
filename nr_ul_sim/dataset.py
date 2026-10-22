@@ -39,6 +39,7 @@ from .parameters import (
     MODULATIONS,
     RECEIVERS,
     SimConfig,
+    available_estimators,
     canonicalize_estimator_name,
     canonicalize_receiver_name,
     detection_keys,
@@ -130,7 +131,7 @@ class DatasetConfig:
             ("channels", self.channels, CHANNELS),
             ("modulations", self.modulations, MODULATIONS),
             ("receivers", self.receivers, RECEIVERS),
-            ("channel_estimators", self.channel_estimators, CHANNEL_ESTIMATORS),
+            ("channel_estimators", self.channel_estimators, available_estimators()),
         ):
             unknown = [v for v in values if v not in allowed]
             if unknown:
