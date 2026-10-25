@@ -4,14 +4,21 @@ import json
 
 import numpy as np
 import pytest
+import sionna.phy
 import torch
 
+import nr_ul_sim.dataset as dataset_module
 from nr_ul_sim.dataset import (
+    DATASET_VERSION,
     FEATURE_NAMES,
     BerProbe,
     DatasetConfig,
+    FrozenChannelSimulator,
+    build_parser,
     channel_features,
     compact_channel,
+    config_from_args,
+    generate_dataset,
     interference_covariance,
     pack_dataset,
     run_scenario,
@@ -160,6 +167,78 @@ def test_scenario_is_reproducible_regardless_of_warm_start():
     assert all(curves[0][snr] == curves[1][snr] for snr in shared)
 
 
+def _frozen_slot_parts(monkeypatch, versions, **kwargs):
+    """Serving and interference grids of one frozen slot per dataset version.
+
+    All versions share the frozen channels and the random streams, so they differ
+    only in the power convention. ``serving_plus_interference`` is replaced by a
+    spy that records its inputs and adds no noise.
+    """
+    captured = []
+
+    def spy(y_s, y_i, no, iot_db, num_streams=1):
+        captured.append({"y_s": y_s, "y_i": y_i, "num_streams": num_streams})
+        return y_s
+
+    monkeypatch.setattr(dataset_module, "serving_plus_interference", spy)
+    cfg = SimConfig(
+        channel="cdl-c", num_prb=4, fft_size=256, receivers=("lmmse",),
+        channel_estimators=("ls_lin",), iot_db=[10.0], seed=5, **kwargs,
+    )
+    frozen = None
+    for version in versions:
+        sim = FrozenChannelSimulator(cfg, version)
+        sionna.phy.config.seed = 11
+        torch.manual_seed(11)
+        frozen = sim.freeze(*(frozen or (None, None)))
+        sionna.phy.config.seed = 12
+        torch.manual_seed(12)
+        sim.generate_slot(2, 10.0, 10.0)
+    return cfg, captured
+
+
+def test_frozen_slot_v2_uses_simulator_power_convention(monkeypatch):
+    cfg, (v1, v2) = _frozen_slot_parts(
+        monkeypatch, (1, 2), num_ue=1, num_layers=2, num_interferers=2
+    )
+    assert cfg.layer_power_scale == pytest.approx(2 ** -0.5)
+    assert cfg.num_interferer_streams == 4
+    # unit power per UE: each of the two layers carries half the power
+    assert torch.allclose(v2["y_s"], v1["y_s"] * cfg.layer_power_scale, atol=1e-6)
+    # total interference INR * N0, not INR * N0 per interferer stream
+    assert v1["num_streams"] == 1
+    assert v2["num_streams"] == cfg.num_interferer_streams
+    assert torch.allclose(v2["y_i"], v1["y_i"])
+
+
+def test_frozen_slot_versions_agree_for_rank1_single_stream(monkeypatch):
+    cfg, (v1, v2) = _frozen_slot_parts(
+        monkeypatch, (1, 2), num_ue=2, num_layers=1, num_interferers=1
+    )
+    assert cfg.layer_power_scale == 1.0 and cfg.num_interferer_streams == 1
+    assert torch.equal(v1["y_s"], v2["y_s"])
+    assert v1["num_streams"] == v2["num_streams"] == 1
+
+
+def test_dataset_version_validation_and_cli():
+    assert DatasetConfig().dataset_version == DATASET_VERSION == 2
+    with pytest.raises(ValueError, match="dataset_version"):
+        DatasetConfig(dataset_version=3)
+    with pytest.raises(ValueError, match="dataset_version"):
+        FrozenChannelSimulator(SimConfig(num_prb=4, fft_size=256), 0)
+    args = build_parser().parse_args(["--dataset-version", "1"])
+    assert config_from_args(args).dataset_version == 1
+    assert config_from_args(build_parser().parse_args([])).dataset_version == 2
+
+
+def test_resume_refuses_other_dataset_version(tmp_path):
+    # records written before versioning count as version 1
+    (tmp_path / "meta.jsonl").write_text(json.dumps({"scenario_id": 0}) + "\n")
+    with pytest.raises(ValueError, match="dataset_version"):
+        generate_dataset(DatasetConfig(outdir=tmp_path, resume=True), verbose=False)
+    assert not (tmp_path / "dataset_config.json").exists()
+
+
 def test_pack_dataset_pads_and_stacks(tmp_path):
     records = []
     for i, streams in enumerate((1, 3)):
@@ -190,6 +269,7 @@ def test_pack_dataset_pads_and_stacks(tmp_path):
             "working_point_status": {"lmmse": "not_reached" if i else "ok"},
             "features": {name: float(i) for name in FEATURE_NAMES},
             "channel_shape": [4, streams, 4, 16],
+            "dataset_version": 2,
         }
         arrays = {
             "h": np.ones((4, streams, 4, 16), dtype=np.complex64) * (i + 1),
@@ -210,4 +290,10 @@ def test_pack_dataset_pads_and_stacks(tmp_path):
         assert np.isnan(data["wp_lmmse"][1])
         assert np.isnan(data["delay_spread_ns"][1])
         assert list(data["wp_status_lmmse"]) == ["ok", "not_reached"]
+        assert int(data["dataset_version"]) == 2
     assert (tmp_path / "dataset.csv").exists()
+
+    del records[0]["dataset_version"]  # legacy record next to a version-2 record
+    (tmp_path / "meta.jsonl").write_text("\n".join(json.dumps(r) for r in records))
+    with pytest.raises(ValueError, match="mixes dataset_version"):
+        pack_dataset(tmp_path, verbose=False)

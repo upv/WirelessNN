@@ -10,6 +10,17 @@ The default sweep is IRC × {perfect, LS-NN, LS-linear, LS-lin+time-avg, LMMSE-C
 × {QPSK, 16QAM, 64QAM}.
 
 Run with ``python -m nr_ul_sim.dataset --num-samples 200 --outdir dataset/run1``.
+
+``dataset_version`` selects the power convention of the frozen-channel slots:
+
+1 -- legacy: unit power per *layer* and interference scaled per interferer
+     *stream*, so rank 2 and multi-stream interference use a different SNR and IoT
+     definition from ``NRUplinkSimulator``. Kept to reproduce old datasets.
+2 -- the simulator's convention (default): unit total power per UE
+     (``SimConfig.layer_power_scale``) and total interference power ``INR * N0``
+     per receive antenna. Identical to version 1 for rank 1 with one interferer stream.
+
+``channel_mode="ensemble"`` always uses the simulator's convention.
 """
 
 from __future__ import annotations
@@ -28,7 +39,6 @@ import torch
 
 from .channels import set_system_topology
 from .interference import (
-    random_ofdm_grid,
     serving_plus_interference,
     spatial_covariance_from_channel,
 )
@@ -69,6 +79,8 @@ FEATURE_NAMES = (
     "ruu_dom_frac",
 )
 RANK_REL_TOL = 1e-2
+DATASET_VERSION = 2
+DATASET_VERSIONS = (1, 2)
 
 
 @dataclass
@@ -78,6 +90,7 @@ class DatasetConfig:
     outdir: Path = Path("dataset")
     seed: int = 0
     resume: bool = False
+    dataset_version: int = DATASET_VERSION
 
     # --- scenario sampling -------------------------------------------------
     channels: tuple[str, ...] = CHANNELS
@@ -124,6 +137,8 @@ class DatasetConfig:
         self.channel_estimators = tuple(
             canonicalize_estimator_name(e) for e in self.channel_estimators
         ) or ("ls_lin",)
+        if self.dataset_version not in DATASET_VERSIONS:
+            raise ValueError(f"dataset_version must be one of {DATASET_VERSIONS}")
         if self.channel_mode not in ("frozen", "ensemble"):
             raise ValueError("channel_mode must be 'frozen' or 'ensemble'")
         for name, values, allowed in (
@@ -158,10 +173,16 @@ class DatasetConfig:
 
 
 class FrozenChannelSimulator(NRUplinkSimulator):
-    """Simulator that reuses a single channel realization in every slot."""
+    """Simulator that reuses a single channel realization in every slot.
 
-    def __init__(self, cfg: SimConfig):
+    ``dataset_version`` 1 keeps the legacy power convention, see the module docstring.
+    """
+
+    def __init__(self, cfg: SimConfig, dataset_version: int = DATASET_VERSION):
+        if dataset_version not in DATASET_VERSIONS:
+            raise ValueError(f"dataset_version must be one of {DATASET_VERSIONS}")
         super().__init__(cfg)
+        self.dataset_version = dataset_version
         self.h_frozen: torch.Tensor | None = None
         self.h_int_frozen: torch.Tensor | None = None
 
@@ -183,7 +204,8 @@ class FrozenChannelSimulator(NRUplinkSimulator):
         if self.h_frozen is None:
             self.freeze()
         cfg = self.cfg
-        x, b = self.transmitter(batch_size)
+        legacy = self.dataset_version == 1
+        x, b = self.transmitter(batch_size) if legacy else self.transmit(batch_size)
         no = snrdb_to_noise_var(snr_db)
 
         h_s = self.h_frozen.expand(batch_size, *self.h_frozen.shape[1:])
@@ -192,17 +214,12 @@ class FrozenChannelSimulator(NRUplinkSimulator):
         h_i = y_i = None
         if iot_db > 0.0 and self.h_int_frozen is not None:
             h_i = self.h_int_frozen.expand(batch_size, *self.h_int_frozen.shape[1:])
-            x_i = random_ofdm_grid(
-                batch_size, cfg.num_interferers, cfg.resolved_ue_ant,
-                cfg.num_ofdm_symbols, cfg.fft_size,
-                dtype=x.real.dtype, device=x.device,
-                guard_carriers=cfg.guard_carriers,
-            )
-            y_i = self.apply_channel(x_i, h_i)
+            y_i = self.apply_channel(self.interferer_grid(batch_size, x), h_i)
 
+        num_streams = 1 if legacy else cfg.num_interferer_streams
         return {
             "b": b,
-            "y": serving_plus_interference(y_s, y_i, no, iot_db),
+            "y": serving_plus_interference(y_s, y_i, no, iot_db, num_streams),
             "h": h_s,
             "h_int": h_i,
             "no": no,
@@ -517,7 +534,7 @@ def run_scenario(
         t0 = time.time()
         cfg = scenario_config(scenario, modulation, seed, dcfg)
         if dcfg.channel_mode == "frozen":
-            sim = FrozenChannelSimulator(cfg)
+            sim = FrozenChannelSimulator(cfg, dcfg.dataset_version)
             h_frozen, h_int_frozen = sim.freeze(h_frozen, h_int_frozen)
         else:
             sim = NRUplinkSimulator(cfg)
@@ -577,6 +594,7 @@ def run_scenario(
             "tb_size": int(_scalar(sim.transmitter._tb_size)),
             "target_ber": dcfg.target_ber,
             "channel_mode": dcfg.channel_mode,
+            "dataset_version": dcfg.dataset_version,
             "channel_estimators": list(dcfg.channel_estimators),
             "working_point_db": working_point,
             "working_point_status": status,
@@ -600,7 +618,7 @@ SCENARIO_KEYS = (
     "scenario_id", "channel", "channel_code", "iot_db", "num_interferers",
     "num_ue", "rank", "num_layers_total", "num_rx_ant", "num_ue_ant",
     "speed_kmh", "delay_spread_ns", "carrier_frequency_hz", "num_prb",
-    "fft_size", "target_ber", "channel_mode", "channel_estimators",
+    "fft_size", "target_ber", "channel_mode", "dataset_version", "channel_estimators",
     "seed", "features", "channel_shape",
 )
 
@@ -650,6 +668,29 @@ def load_channel_arrays(outdir: Path, record: dict[str, Any]) -> dict[str, np.nd
     return arrays
 
 
+def record_version(record: dict[str, Any]) -> int:
+    """Power convention of a stored record; records written before versioning are 1."""
+    return int(record.get("dataset_version", 1))
+
+
+def _check_resume_version(outdir: Path, meta_path: Path, version: int) -> None:
+    """Refuse to append records of a different power convention to an existing run."""
+    found = set()
+    if meta_path.exists():
+        found = {
+            record_version(json.loads(line))
+            for line in meta_path.read_text().splitlines() if line.strip()
+        }
+    config_path = outdir / "dataset_config.json"
+    if not found and config_path.exists():
+        found = {int(json.loads(config_path.read_text()).get("dataset_version", 1))}
+    if found - {version}:
+        raise ValueError(
+            f"{outdir} holds dataset_version {sorted(found)}; "
+            f"resume it with dataset_version={min(found)} or use a new outdir"
+        )
+
+
 def _existing_scenarios(meta_path: Path) -> set[int]:
     if not meta_path.exists():
         return set()
@@ -666,6 +707,8 @@ def generate_dataset(dcfg: DatasetConfig, verbose: bool = True) -> Path:
     meta_path = outdir / "meta.jsonl"
     if meta_path.exists() and not dcfg.resume:
         raise FileExistsError(f"{meta_path} exists; pass resume=True to continue it")
+    if dcfg.resume:
+        _check_resume_version(outdir, meta_path, dcfg.dataset_version)
     (outdir / "dataset_config.json").write_text(json.dumps(dcfg.summary(), indent=2))
 
     done = _existing_scenarios(meta_path) if dcfg.resume else set()
@@ -714,6 +757,9 @@ def pack_dataset(outdir: Path, verbose: bool = True) -> Path:
     records = [json.loads(line) for line in meta_path.read_text().splitlines() if line.strip()]
     if not records:
         raise ValueError(f"No records in {meta_path}")
+    versions = sorted({record_version(r) for r in records})
+    if len(versions) > 1:
+        raise ValueError(f"{meta_path} mixes dataset_version {versions}; labels are not comparable")
     receivers = list(records[0]["working_point_db"])
 
     tensors = {}
@@ -748,6 +794,7 @@ def pack_dataset(outdir: Path, verbose: bool = True) -> Path:
         "channel_names": np.array(CHANNELS),
         "modulation_names": np.array(MODULATIONS),
         "scenario_id": np.array([r["scenario_id"] for r in records], dtype=np.int64),
+        "dataset_version": np.array(versions[0], dtype=np.int32),
     }
     for name in (
         "iot_db", "speed_kmh", "target_coderate", "carrier_frequency_hz", "target_ber",
@@ -846,6 +893,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--outdir", type=Path, default=d.outdir)
     p.add_argument("--seed", type=int, default=d.seed)
     p.add_argument("--resume", action="store_true", help="Append to an existing run")
+    p.add_argument("--dataset-version", type=int, default=d.dataset_version,
+                   choices=DATASET_VERSIONS,
+                   help="Power convention: 1 legacy frozen-channel scaling, 2 as the simulator")
     p.add_argument("--pack-only", action="store_true", help="Only rebuild dataset.npz/csv")
 
     p.add_argument("--channels", type=_str_list, default=d.channels)
