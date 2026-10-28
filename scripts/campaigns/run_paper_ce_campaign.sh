@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Link-level tests of the paper channel estimators (EqDeepRx, A-MMSE), 68 PRB, IRC.
-#   OUT=/root/reports/paper_ce/campaigns WORKERS=2 scripts/campaigns/run_paper_ce_campaign.sh
+#   OUT=reports/paper_ce/campaigns WORKERS=2 scripts/campaigns/run_paper_ce_campaign.sh
 # Needs models/paper_ce from scripts/training/train_paper_ce.py.
 set -euo pipefail
 cd "$(dirname "$0")/../.."   # repository root

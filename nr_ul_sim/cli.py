@@ -28,8 +28,10 @@ from .parameters import (
     RECEIVERS,
     TX_POWER_NORMS,
     SimConfig,
+    available_estimators,
     canonicalize_estimator_name,
     canonicalize_receiver_name,
+    load_estimator_plugin,
     parse_csv_floats,
 )
 from .plotting import save_campaign_plots
@@ -145,6 +147,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="RMS delay spread of the exponential-PDP prior of lmmse_exp (default: scenario value)")
     g.add_argument("--ce-model-dir", default=None,
                    help="Trained paper estimators (default: models/paper_ce)")
+    g.add_argument("--ce-plugin", action="append", default=[], metavar="FILE",
+                   help="Python file that registers extra estimators with "
+                        "nr_ul_sim.parameters.register_estimator; repeatable")
 
     g = p.add_argument_group("carrier and resource grid")
     g.add_argument("--carrier-ghz", type=float, default=3.5)
@@ -196,7 +201,9 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
         canonicalize_estimator_name(e)
         for e in args.channel_estimators.split(",") if e.strip()
     )
-    unknown_ce = [e for e in estimators if e not in CHANNEL_ESTIMATORS]
+    for plugin in args.ce_plugin:
+        load_estimator_plugin(plugin)
+    unknown_ce = [e for e in estimators if e not in available_estimators()]
     if unknown_ce:
         raise SystemExit(f"Unknown channel estimators {unknown_ce}")
 
@@ -227,6 +234,7 @@ def config_from_args(args: argparse.Namespace) -> SimConfig:
         ce_time_interp=args.ce_time_interp,
         ce_lmmse_prior_ds_ns=args.ce_lmmse_prior_ds_ns,
         ce_model_dir=args.ce_model_dir,
+        ce_plugins=tuple(args.ce_plugin),
         incm_band_sc=args.incm_band_sc,
         carrier_frequency=args.carrier_ghz * 1e9,
         num_prb=args.num_prb,
@@ -265,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     args = build_parser().parse_args(join_signed_values(argv))
     if args.list:
+        for plugin in args.ce_plugin:
+            load_estimator_plugin(plugin)
         print(describe_options())
         return 0
     cfg = config_from_args(args)

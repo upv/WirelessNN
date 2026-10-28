@@ -25,7 +25,13 @@ import numpy as np
 import torch
 
 from .interference import irc_interference_covariance
-from .parameters import CHANNEL_ESTIMATORS, MODULATIONS, SimConfig, snrdb_to_noise_var
+from .parameters import (
+    CHANNEL_ESTIMATORS,
+    MODULATIONS,
+    SimConfig,
+    available_estimators,
+    snrdb_to_noise_var,
+)
 from .random_channels import (
     CDL_LETTER,
     build_frozen_system_level,
@@ -70,7 +76,7 @@ def parse_estimators(spec: str) -> tuple[str, ...]:
     ``perfect`` is always first: every loss is measured against it.
     """
     names = [e.strip() for e in spec.split(",") if e.strip()] or list(CHANNEL_ESTIMATORS)
-    unknown = [e for e in names if e not in CHANNEL_ESTIMATORS]
+    unknown = [e for e in names if e not in available_estimators()]
     if unknown:
         raise ValueError(f"unknown channel estimators {unknown}")
     names = ["perfect"] + [e for e in names if e != "perfect"]
