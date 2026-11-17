@@ -1,0 +1,2835 @@
+{
+ "config": {
+  "channel": "cdl-c",
+  "delay_spread_ns": 300.0,
+  "num_ue": 1,
+  "num_rx_ant": 4,
+  "num_ue_ant": 2,
+  "rank": 2,
+  "speed_kmh": 30.0,
+  "snr_db": [
+   -10.0,
+   -8.0,
+   -6.0,
+   -4.0,
+   -2.0,
+   0.0,
+   2.0,
+   4.0,
+   6.0,
+   8.0,
+   10.0,
+   12.0,
+   14.0,
+   16.0
+  ],
+  "iot_db": [
+   0.0
+  ],
+  "num_interferers": 0,
+  "modulation": "qpsk",
+  "mcs_table": 1,
+  "mcs_index": 5,
+  "receivers": [
+   "lmmse"
+  ],
+  "perfect_csi": false,
+  "channel_estimators": [
+   "perfect",
+   "ls_nn",
+   "ls_lin",
+   "ls_lin_time_avg",
+   "lmmse_ce",
+   "lmmse_exp",
+   "ls_hard_window",
+   "ls_soft_window",
+   "ls_fir",
+   "denoise_nn",
+   "lmmse_data",
+   "lmmse_data_1d",
+   "a_mmse",
+   "ra_a_mmse",
+   "channelformer"
+  ],
+  "channel_estimator": "perfect,ls_nn,ls_lin,ls_lin_time_avg,lmmse_ce,lmmse_exp,ls_hard_window,ls_soft_window,ls_fir,denoise_nn,lmmse_data,lmmse_data_1d,a_mmse,ra_a_mmse,channelformer",
+  "iot_cov": "perfect",
+  "tx_power_norm": "per_ue",
+  "ce_window_pos_us": 3.0,
+  "ce_window_neg_us": 1.0,
+  "ce_soft_threshold": 1.5,
+  "ce_soft_noise_mode": "outside",
+  "ce_soft_within_window": false,
+  "ce_time_interp": "linear",
+  "ce_lmmse_prior_ds_ns": null,
+  "ce_model_dir": null,
+  "ce_plugins": [
+   "experiments/channelformer/plugin.py"
+  ],
+  "incm_band_sc": 24,
+  "carrier_frequency_hz": 3500000000.0,
+  "subcarrier_spacing_khz": 30.0,
+  "num_prb": 68,
+  "num_used_subcarriers": 816,
+  "fft_size": 1024,
+  "guard_carriers": [
+   104,
+   104
+  ],
+  "rbg_size": 4,
+  "num_rbg": 17,
+  "dmrs_type": 1,
+  "dmrs_length": 1,
+  "dmrs_additional_position": 1,
+  "target_ber": 0.01,
+  "target_bler": 0.1,
+  "seed": 42
+ },
+ "device": "cuda",
+ "iot": {
+  "0.0": {
+   "perfect": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.34826988935721814,
+     0.3110827186512118,
+     0.26504741833508955,
+     0.18628358798735511,
+     0.011332876712328768,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.155,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.34826988935721814,
+      "bler": 1.0,
+      "bit_errors": 528813,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3110827186512118,
+      "bler": 1.0,
+      "bit_errors": 472348,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.26504741833508955,
+      "bler": 1.0,
+      "bit_errors": 402448,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.18628358798735511,
+      "bler": 1.0,
+      "bit_errors": 282853,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.011332876712328768,
+      "bler": 0.155,
+      "bit_errors": 33092,
+      "num_bits": 2920000,
+      "block_errors": 31,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.9891907050448983,
+    "working_point_bler_db": -1.965982831732966,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     24.674,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_nn": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.44061116965226554,
+     0.41294520547945207,
+     0.37517650158061117,
+     0.32841807165437303,
+     0.26525,
+     0.1223027397260274,
+     0.010063356164383561,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.895,
+     0.095,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.44061116965226554,
+      "bler": 1.0,
+      "bit_errors": 669024,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.41294520547945207,
+      "bler": 1.0,
+      "bit_errors": 627016,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.37517650158061117,
+      "bler": 1.0,
+      "bit_errors": 569668,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.32841807165437303,
+      "bler": 1.0,
+      "bit_errors": 498670,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.26525,
+      "bler": 1.0,
+      "bit_errors": 774530,
+      "num_bits": 2920000,
+      "block_errors": 200,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.1223027397260274,
+      "bler": 0.895,
+      "bit_errors": 357124,
+      "num_bits": 2920000,
+      "block_errors": 179,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.010063356164383561,
+      "bler": 0.095,
+      "bit_errors": 29385,
+      "num_bits": 2920000,
+      "block_errors": 19,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": 2.000548418297838,
+    "working_point_bler_db": 1.9542625854723408,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     3.0659999999999994,
+     26.426,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_lin": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.42858601159114856,
+     0.3974657534246575,
+     0.356834167544784,
+     0.30662737091675446,
+     0.23569109589041096,
+     0.05067876712328767,
+     0.004414041095890411,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.57,
+     0.04,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.42858601159114856,
+      "bler": 1.0,
+      "bit_errors": 650765,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3974657534246575,
+      "bler": 1.0,
+      "bit_errors": 603512,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.356834167544784,
+      "bler": 1.0,
+      "bit_errors": 541817,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.30662737091675446,
+      "bler": 1.0,
+      "bit_errors": 465583,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.23569109589041096,
+      "bler": 1.0,
+      "bit_errors": 688218,
+      "num_bits": 2920000,
+      "block_errors": 200,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.05067876712328767,
+      "bler": 0.57,
+      "bit_errors": 147982,
+      "num_bits": 2920000,
+      "block_errors": 114,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.004414041095890411,
+      "bler": 0.04,
+      "bit_errors": 12889,
+      "num_bits": 2920000,
+      "block_errors": 8,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": 1.3298734163521657,
+    "working_point_bler_db": 1.3102186131080857,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     12.556000000000003,
+     28.032,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_lin_time_avg": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.4159266332982086,
+     0.381350105374078,
+     0.337620521601686,
+     0.2842972866174921,
+     0.19045650684931506,
+     0.01195890410958904,
+     0.0016198630136986302,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.16,
+     0.02,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.4159266332982086,
+      "bler": 1.0,
+      "bit_errors": 631543,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.381350105374078,
+      "bler": 1.0,
+      "bit_errors": 579042,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.337620521601686,
+      "bler": 1.0,
+      "bit_errors": 512643,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2842972866174921,
+      "bler": 1.0,
+      "bit_errors": 431677,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.19045650684931506,
+      "bler": 1.0,
+      "bit_errors": 556133,
+      "num_bits": 2920000,
+      "block_errors": 200,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.01195890410958904,
+      "bler": 0.16,
+      "bit_errors": 34920,
+      "num_bits": 2920000,
+      "block_errors": 32,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0016198630136986302,
+      "bler": 0.02,
+      "bit_errors": 4730,
+      "num_bits": 2920000,
+      "block_errors": 4,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": 0.17896846775418826,
+    "working_point_bler_db": 0.45204793674175847,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     24.528,
+     28.616,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "lmmse_ce": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.3580011854583772,
+     0.3202377502634352,
+     0.27424394099051635,
+     0.2050513698630137,
+     0.018076027397260275,
+     0.00010068493150684932,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.25,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.3580011854583772,
+      "bler": 1.0,
+      "bit_errors": 543589,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3202377502634352,
+      "bler": 1.0,
+      "bit_errors": 486249,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.27424394099051635,
+      "bler": 1.0,
+      "bit_errors": 416412,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2050513698630137,
+      "bler": 1.0,
+      "bit_errors": 311350,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.018076027397260275,
+      "bler": 0.25,
+      "bit_errors": 52782,
+      "num_bits": 2920000,
+      "block_errors": 50,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.00010068493150684932,
+      "bler": 0.005,
+      "bit_errors": 294,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.7718835914085194,
+    "working_point_bler_db": -1.5315514604066738,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     21.9,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "lmmse_exp": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.36765937829293993,
+     0.3290760010537408,
+     0.2844309799789252,
+     0.2201231559536354,
+     0.031249315068493152,
+     0.0005777397260273972,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.37,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.36765937829293993,
+      "bler": 1.0,
+      "bit_errors": 558254,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3290760010537408,
+      "bler": 1.0,
+      "bit_errors": 499669,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2844309799789252,
+      "bler": 1.0,
+      "bit_errors": 431880,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2201231559536354,
+      "bler": 1.0,
+      "bit_errors": 334235,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.031249315068493152,
+      "bler": 0.37,
+      "bit_errors": 91248,
+      "num_bits": 2920000,
+      "block_errors": 74,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0005777397260273972,
+      "bler": 0.01,
+      "bit_errors": 1687,
+      "num_bits": 2920000,
+      "block_errors": 2,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.4289560428663157,
+    "working_point_bler_db": -1.275346130096818,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     18.396,
+     28.908,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_hard_window": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.4111433087460485,
+     0.3746845363540569,
+     0.33028977871443627,
+     0.274525158061117,
+     0.15968390410958905,
+     0.0060349315068493154,
+     0.0008554794520547946,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.1,
+     0.015,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.4111433087460485,
+      "bler": 1.0,
+      "bit_errors": 624280,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3746845363540569,
+      "bler": 1.0,
+      "bit_errors": 568921,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.33028977871443627,
+      "bler": 1.0,
+      "bit_errors": 501512,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.274525158061117,
+      "bler": 1.0,
+      "bit_errors": 416839,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.15968390410958905,
+      "bler": 1.0,
+      "bit_errors": 466277,
+      "num_bits": 2920000,
+      "block_errors": 200,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0060349315068493154,
+      "bler": 0.1,
+      "bit_errors": 17622,
+      "num_bits": 2920000,
+      "block_errors": 20,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0008554794520547946,
+      "bler": 0.015,
+      "bit_errors": 2498,
+      "num_bits": 2920000,
+      "block_errors": 3,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -0.30835003769833946,
+    "working_point_bler_db": 0.0,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     26.28,
+     28.762,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_soft_window": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.3657428872497366,
+     0.3275869336143309,
+     0.28299986828240253,
+     0.21927489462592203,
+     0.027629452054794522,
+     0.0004325342465753425,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.365,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.3657428872497366,
+      "bler": 1.0,
+      "bit_errors": 555344,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3275869336143309,
+      "bler": 1.0,
+      "bit_errors": 497408,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.28299986828240253,
+      "bler": 1.0,
+      "bit_errors": 429707,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.21927489462592203,
+      "bler": 1.0,
+      "bit_errors": 332947,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.027629452054794522,
+      "bler": 0.365,
+      "bit_errors": 80678,
+      "num_bits": 2920000,
+      "block_errors": 73,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0004325342465753425,
+      "bler": 0.005,
+      "bit_errors": 1263,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.5110401433032516,
+    "working_point_bler_db": -1.3964622272490934,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     18.542,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ls_fir": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.40325210748155954,
+     0.3647991306638567,
+     0.31928213909378295,
+     0.2609378292939937,
+     0.10803116438356164,
+     0.0026232876712328768,
+     0.0002910958904109589,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.935,
+     0.045,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.40325210748155954,
+      "bler": 1.0,
+      "bit_errors": 612298,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3647991306638567,
+      "bler": 1.0,
+      "bit_errors": 553911,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.31928213909378295,
+      "bler": 1.0,
+      "bit_errors": 484798,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2609378292939937,
+      "bler": 1.0,
+      "bit_errors": 396208,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.10803116438356164,
+      "bler": 0.935,
+      "bit_errors": 315451,
+      "num_bits": 2920000,
+      "block_errors": 187,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0026232876712328768,
+      "bler": 0.045,
+      "bit_errors": 7660,
+      "num_bits": 2920000,
+      "block_errors": 9,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0002910958904109589,
+      "bler": 0.005,
+      "bit_errors": 850,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -0.719827772464241,
+    "working_point_bler_db": -0.5263930234753043,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.8979999999999984,
+     27.886,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "denoise_nn": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.361784114857745,
+     0.3228246838777661,
+     0.276452186512118,
+     0.20773511591148577,
+     0.018818150684931506,
+     7.534246575342466e-05,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.26,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.361784114857745,
+      "bler": 1.0,
+      "bit_errors": 549333,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3228246838777661,
+      "bler": 1.0,
+      "bit_errors": 490177,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.276452186512118,
+      "bler": 1.0,
+      "bit_errors": 419765,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.20773511591148577,
+      "bler": 1.0,
+      "bit_errors": 315425,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.018818150684931506,
+      "bler": 0.26,
+      "bit_errors": 54949,
+      "num_bits": 2920000,
+      "block_errors": 52,
+      "num_blocks": 200
+     },
+     {
+      "ber": 7.534246575342466e-05,
+      "bler": 0.005,
+      "bit_errors": 220,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.7709508308598447,
+    "working_point_bler_db": -1.5163490216845021,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     21.608,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "lmmse_data": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.36332784510010535,
+     0.3255532139093783,
+     0.2811314541622761,
+     0.21710155426765015,
+     0.02928972602739726,
+     0.0005955479452054794,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.35,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.36332784510010535,
+      "bler": 1.0,
+      "bit_errors": 551677,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3255532139093783,
+      "bler": 1.0,
+      "bit_errors": 494320,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2811314541622761,
+      "bler": 1.0,
+      "bit_errors": 426870,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.21710155426765015,
+      "bler": 1.0,
+      "bit_errors": 329647,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.02928972602739726,
+      "bler": 0.35,
+      "bit_errors": 85526,
+      "num_bits": 2920000,
+      "block_errors": 70,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0005955479452054794,
+      "bler": 0.01,
+      "bit_errors": 1739,
+      "num_bits": 2920000,
+      "block_errors": 2,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.4482613767286723,
+    "working_point_bler_db": -1.2952797043614583,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     18.98,
+     28.908,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "lmmse_data_1d": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.36569612750263436,
+     0.3278042676501581,
+     0.28265345100105377,
+     0.2195508429926238,
+     0.03077876712328767,
+     0.0005804794520547945,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.375,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.36569612750263436,
+      "bler": 1.0,
+      "bit_errors": 555273,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3278042676501581,
+      "bler": 1.0,
+      "bit_errors": 497738,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.28265345100105377,
+      "bler": 1.0,
+      "bit_errors": 429181,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2195508429926238,
+      "bler": 1.0,
+      "bit_errors": 333366,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.03077876712328767,
+      "bler": 0.375,
+      "bit_errors": 89874,
+      "num_bits": 2920000,
+      "block_errors": 75,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0005804794520547945,
+      "bler": 0.005,
+      "bit_errors": 1695,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.4337357980891032,
+    "working_point_bler_db": -1.387719986610588,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     18.25,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "a_mmse": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.3690397787144363,
+     0.3289304531085353,
+     0.2853668335089568,
+     0.2196285563751317,
+     0.03688938356164383,
+     0.0005928082191780822,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.425,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.3690397787144363,
+      "bler": 1.0,
+      "bit_errors": 560350,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3289304531085353,
+      "bler": 1.0,
+      "bit_errors": 499448,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2853668335089568,
+      "bler": 1.0,
+      "bit_errors": 433301,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2196285563751317,
+      "bler": 1.0,
+      "bit_errors": 333484,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.03688938356164383,
+      "bler": 0.425,
+      "bit_errors": 107717,
+      "num_bits": 2920000,
+      "block_errors": 85,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0005928082191780822,
+      "bler": 0.01,
+      "bit_errors": 1731,
+      "num_bits": 2920000,
+      "block_errors": 2,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.3679983850018238,
+    "working_point_bler_db": -1.2282078090141566,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     16.79,
+     28.908,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "ra_a_mmse": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.36872036354056903,
+     0.3285056638566913,
+     0.2851936248682824,
+     0.21930255532139092,
+     0.03753595890410959,
+     0.0006273972602739726,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.445,
+     0.01,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.36872036354056903,
+      "bler": 1.0,
+      "bit_errors": 559865,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3285056638566913,
+      "bler": 1.0,
+      "bit_errors": 498803,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.2851936248682824,
+      "bler": 1.0,
+      "bit_errors": 433038,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.21930255532139092,
+      "bler": 1.0,
+      "bit_errors": 332989,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.03753595890410959,
+      "bler": 0.445,
+      "bit_errors": 109605,
+      "num_bits": 2920000,
+      "block_errors": 89,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0006273972602739726,
+      "bler": 0.01,
+      "bit_errors": 1832,
+      "num_bits": 2920000,
+      "block_errors": 2,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.3534290823329846,
+    "working_point_bler_db": -1.2133271777260655,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     16.206,
+     28.908,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   },
+   "channelformer": {
+    "snr_db": [
+     -10.0,
+     -8.0,
+     -6.0,
+     -4.0,
+     -2.0,
+     0.0,
+     2.0,
+     4.0,
+     6.0,
+     8.0,
+     10.0,
+     12.0,
+     14.0,
+     16.0
+    ],
+    "ber": [
+     0.36133166491043206,
+     0.3222622497365648,
+     0.27578767123287673,
+     0.20609654899894625,
+     0.018102739726027398,
+     9.965753424657535e-05,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "bler": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     0.255,
+     0.005,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "stats": [
+     {
+      "ber": 0.36133166491043206,
+      "bler": 1.0,
+      "bit_errors": 548646,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.3222622497365648,
+      "bler": 1.0,
+      "bit_errors": 489323,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.27578767123287673,
+      "bler": 1.0,
+      "bit_errors": 418756,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.20609654899894625,
+      "bler": 1.0,
+      "bit_errors": 312937,
+      "num_bits": 1518400,
+      "block_errors": 104,
+      "num_blocks": 104
+     },
+     {
+      "ber": 0.018102739726027398,
+      "bler": 0.255,
+      "bit_errors": 52860,
+      "num_bits": 2920000,
+      "block_errors": 51,
+      "num_blocks": 200
+     },
+     {
+      "ber": 9.965753424657535e-05,
+      "bler": 0.005,
+      "bit_errors": 291,
+      "num_bits": 2920000,
+      "block_errors": 1,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     },
+     {
+      "ber": 0.0,
+      "bler": 0.0,
+      "bit_errors": 0,
+      "num_bits": 2920000,
+      "block_errors": 0,
+      "num_blocks": 200
+     }
+    ],
+    "working_point_db": -1.7718303743883494,
+    "working_point_bler_db": -1.5238378063466032,
+    "throughput_mbps": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     21.754,
+     29.054,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2,
+     29.2
+    ]
+   }
+  }
+ },
+ "duration_s": 742.3581502437592,
+ "tb_size_bits": 14600,
+ "slot_duration_s": 0.0005,
+ "provenance": {
+  "repo_commit": "862753e79893fe6d2907966673bc33e8d56ce5c5",
+  "repo_dirty": false,
+  "torch": "2.14.1+cu130",
+  "sionna": "2.2.0",
+  "python": "3.12.3",
+  "gpu": "NVIDIA RTX PRO 4000 Blackwell SFF Edition",
+  "channelformer_epoch": 25,
+  "channelformer_val_nmse_db": -15.325267289961381
+ }
+}
