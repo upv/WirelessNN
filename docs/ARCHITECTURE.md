@@ -2,7 +2,8 @@
 
 How the repository is organised, how one slot flows through the code, and the
 conventions the modules share. For a hands-on introduction read
-[TUTORIAL.md](TUTORIAL.md) first.
+[TUTORIAL.md](TUTORIAL.md) first; for the physical model and its definitions,
+[MODEL.md](MODEL.md).
 
 ## Repository layout
 
@@ -17,11 +18,12 @@ scripts/
   dataset/            sharded dataset runs, merging, analysis
   training/           trained estimators and working-point regressors
 tests/                pytest suite (physics, estimators, searches, dataset, CLI)
-docs/                 TUTORIAL.md, ARCHITECTURE.md
+docs/                 TUTORIAL.md, MODEL.md, ARCHITECTURE.md, DATASET.md, RESULTS.md
+experiments/          self-contained studies (channelformer, ce_denoising), each with a README
 notebooks/            scratch notebooks
 dataset/              tracked metadata of generated datasets (tensors are not in git)
 models/               trained estimators (paper_ce), ridge baseline, regressor benchmarks
-results/              figures of reference runs
+results/              default output directory (only figures are tracked)
 ```
 
 Scripts and examples add the repository root to `sys.path` themselves, so they run
@@ -76,6 +78,7 @@ Built on the simulator:
 | `random_channels.py` | per-configuration random CDL tables and frozen UMi/UMa drops |
 | `random_campaign.py` | one configuration of the random-channel campaign (`RandomChannelSimulator`, features, record) |
 | `wp_search.py` | adaptive working-point search with censoring for all estimators at once |
+| `losses.py` | exact bit-wise BCE on complex symbols for any square QAM, for training receivers and estimators (depends on torch only) |
 
 ## One slot
 

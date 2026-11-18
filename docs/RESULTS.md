@@ -1,0 +1,164 @@
+# Results
+
+Selected results produced with the code in this repository. Each section names the
+setup and where the full tables and the scripts to reproduce them live. All numbers
+are specific to their setup and code revision. In particular, the soft-window results
+from before 2026-10-06 need `--ce-soft-noise-mode thermal` to reproduce.
+
+**Working point:** the SNR (per receive antenna and resource element) where coded BER
+reaches 0.01 or BLER reaches 0.1. **CE loss:** working point of an estimator minus
+the working point with perfect CSI on the same slots.
+
+Contents:
+[1 4x2 MIMO: 14 estimators and Channelformer](#1-4x2-mimo-14-estimators-and-channelformer) ·
+[2 Trained estimators at 68 PRB](#2-trained-estimators-at-68-prb) ·
+[3 Random-channel campaign](#3-random-channel-campaign-5000-configurations) ·
+[4 Interference-aware soft window](#4-interference-aware-soft-window) ·
+[5 Linear baselines for LS denoising](#5-linear-baselines-for-ls-denoising) ·
+[6 Physical validation](#6-physical-validation)
+
+## 1. 4x2 MIMO: 14 estimators and Channelformer
+
+**November 2026.** One UE with 2 antenna ports at rank 2, 4 gNB antennas (one
+38.901 panel 1x2 dual-pol), 68 PRB, 30 kHz, LMMSE receiver with LDPC decoding, no
+interference. 45 scenarios: CDL-B/C/D, UMi, UMa × 3 / 30 / 120 km/h × QPSK, 16QAM,
+64QAM. All 14 built-in estimators and
+[Channelformer](../experiments/channelformer/README.md) (Luan & Thompson, IEEE TWC
+2023), plugged in with `--ce-plugin`.
+
+![Mean CE loss in the 4x2 campaign](img/ce_loss_4x2.png)
+
+| Estimator | Mean CE loss, all [dB] | CDL-B/C/D | UMi/UMa | Scenarios without 10 % BLER |
+| --- | ---: | ---: | ---: | ---: |
+| `channelformer` | **0.91** | **0.17** | **2.08** | 1 |
+| `denoise_nn`\* | 1.18 | 0.38 | 2.45 | 1 |
+| `ls_soft_window` | 1.23 | 0.54 | 2.34 | 1 |
+| `lmmse_data`\* | 1.29 | 0.52 | 2.44 | 0 |
+| `lmmse_data_1d`\* | 1.35 | 0.69 | 2.39 | 1 |
+| `lmmse_exp` | 1.43 | 0.67 | 2.55 | 0 |
+| `a_mmse`\* | 1.58 | 0.73 | 2.94 | 1 |
+| `ls_fir` | 1.70 | 1.07 | 2.71 | 1 |
+| `ls_hard_window` | 2.07 | 1.45 | 3.06 | 1 |
+| `ra_a_mmse`\* | 2.75 | 1.69 | 4.99 | 5 |
+| `ls_lin` | 2.85 | 2.23 | 3.96 | 3 |
+| `ls_nn` | 3.40 | 2.76 | 4.70 | 9 |
+| `ls_lin_time_avg` | 2.11 | 1.56 | 3.07 | 12 |
+| `lmmse_ce` | 0.56 | 0.56 | fails | 18 |
+
+Means are over the scenarios where the estimator reached 10 % BLER, so estimators that
+fail more often look better than they are. \* trained on UMa only (`models/paper_ce`).
+
+- **Channelformer is the best realisable estimator overall** and stays within 0.5 dB
+  of perfect CSI on every CDL scenario. It was trained on a mix of all five channel
+  families, the paper estimators on UMa only, so part of its lead is training data.
+- **UMi/UMa at 64QAM is hard for every estimator:** 3–6 dB loss, and several
+  estimators never reach 10 % BLER at 120 km/h.
+- `lmmse_ce` uses a TDL prior equal to the CDL power-delay profile, i.e. a genie on
+  CDL, and fails on UMi/UMa. `ra_a_mmse` (rank 6) breaks down at 120 km/h.
+- Each BLER point has at most 200 blocks, so differences below about 0.3 dB are within
+  Monte-Carlo noise.
+
+Full per-scenario tables, NMSE versus SNR and BLER curves:
+[report.md](../experiments/channelformer/results/mimo4x2_20261116/report.md).
+Commands to reproduce: [experiments/channelformer](../experiments/channelformer/README.md).
+
+## 2. Trained estimators at 68 PRB
+
+**October 2026.** IRC receiver, 68 PRB, 4 gNB antennas. 36 link-level campaigns
+over CDL-B, CDL-C, UMi, UMa × QPSK / 16QAM / 64QAM × (1 UE rank 1, 2 UEs rank 1,
+2 UEs rank 2), each at IoT 0 and 10 dB (72 cases), plus 12 campaigns comparing the
+IRC interference-covariance estimators. The
+estimators of EqDeepRx (arXiv:2602.11834) and A-MMSE (arXiv:2506.00452) were trained
+on UMa (`scripts/training/train_paper_ce.py`); UMi and CDL are outside their training
+distribution.
+
+| Estimator | Median CE loss, BER = 1e-2 [dB] |
+| --- | ---: |
+| `denoise_nn` (EqDeepRx DenoiseNN) | **0.63** |
+| `lmmse_exp` (LMMSE, exponential prior) | 0.64 |
+| `lmmse_data` (LMMSE, data covariance) | 0.99 |
+| `a_mmse` | 1.05 |
+| `ra_a_mmse` (rank 6) | 1.07 |
+| `ls_soft_window` | 1.16 |
+| `ls_fir` | 1.31 |
+| `ls_lin` | 2.84 |
+
+- DenoiseNN carries over to CDL outside its training set (CDL-B 0.18 dB, CDL-C
+  0.34 dB; `lmmse_exp` 0.15 / 0.57 dB) but misses the working point in 9 of 72 cases.
+- A-MMSE converges to the best fixed linear filter, as its paper says, and does not
+  beat `lmmse_data`, its closed-form limit.
+- RA-A-MMSE with rank 6 loses 2–4.5 dB NMSE above 10 dB SNR on UMa validation.
+
+Reproduce: `scripts/campaigns/run_paper_ce_campaign.sh`, then
+`scripts/campaigns/report_paper_ce.py` (NMSE curves:
+`scripts/training/eval_paper_ce.py`).
+
+## 3. Random-channel campaign (5000 configurations)
+
+**October 2026.** 5000 random configurations at 16 PRB (1000 per channel family),
+IRC with perfect interference covariance, all 14 estimators on shared slots. Every
+configuration draws its own delay spread (20–1000 ns), cluster angles, K-factor,
+UE geometry, speed (0.5–120 km/h), IoT and interferers
+(`nr_ul_sim/random_channels.py`); the working point is found by an adaptive,
+censoring-aware search (`nr_ul_sim/wp_search.py`). 9 h 16 min on one RTX PRO 6000
+with 3 workers.
+
+| Estimator | Working point found | Median CE loss, found only | Median with censoring | p90 with censoring |
+| --- | ---: | ---: | ---: | ---: |
+| `lmmse_ce` (TDL prior) | 84 % | 0.63 dB | 0.83 dB | not found |
+| `denoise_nn` | 90 % | 0.68 | 0.77 | not found |
+| `lmmse_exp` | 92 % | 1.02 | 1.13 | 4.26 |
+| `a_mmse` | 93 % | 1.19 | 1.29 | 5.98 |
+| `lmmse_data` | 96 % | 1.32 | 1.37 | 3.95 |
+| `ra_a_mmse` | 86 % | 1.33 | 1.56 | not found |
+| `ls_lin` | 93 % | 2.59 | 2.75 | 5.57 |
+
+"With censoring" counts a working point that was not found as infinite loss.
+
+- Ranked by median loss and ranked by reliability give different orders: the
+  matched-prior LMMSE is best when it works but misses 16 % of configurations.
+- A-MMSE matches `lmmse_data` within ±0.25 dB in half of the configurations, but has
+  a heavier tail (no working point in 7.1 % vs 3.9 %, median loss 15.4 dB above
+  1000 ns delay spread): a filter bank learned on UMa needs a delay-spread dimension.
+- Labels are reproducible: every working point is recomputed exactly from the stored
+  BER curves, and a dense re-simulation of 16 configurations agrees within ±0.3 dB.
+
+Reproduce: [tutorial section 9](TUTORIAL.md#9-random-channel-campaign).
+
+## 4. Interference-aware soft window
+
+**October 2026.** `ls_soft_window` now estimates the per-tap disturbance floor from
+the taps outside the delay window instead of from thermal noise alone. Soft-window
+NMSE at 68 PRB, CDL-C, 1 UE, old (`thermal`) → new (`outside`, default):
+
+| Condition | SNR 5 dB | SNR 15 dB | SNR 25 dB |
+| --- | --- | --- | --- |
+| IoT 10 dB | −2.7 → **−10.3** | −12.4 → **−17.2** | |
+| IoT 20 dB | | −2.0 → **−10.8** | |
+| no interference | | **−22.7** → −21.7 | **−27.2** → −24.1 |
+
+With interference the new floor gains 5–12 dB. Without it, it costs up to 3 dB at
+high SNR, because band-limited leakage of the channel taps raises the out-of-window
+median above the thermal floor. The same estimator feeds the measured-covariance IRC
+receiver `irc_real`; compare it with genie IRC using
+`scripts/campaigns/benchmark_irc_real.py`.
+
+## 5. Linear baselines for LS denoising
+
+**October 2026.** A 20 250-realisation dataset of LS estimate → true channel pairs
+(16 PRB, 4 RX, CDL/UMi/UMa, SNR −20…10 dB, IoT 0/10/20 dB) for training denoising
+estimators. On 4050 test channels: LS with linear interpolation +20.3 dB NMSE, one
+shared ridge map on LS −1.1 dB, LMMSE with known interference-plus-noise power
+**−4.4 dB**. Details, breakdowns and the bit-level (BCE) metric:
+[experiments/ce_denoising/REPORT.md](../experiments/ce_denoising/REPORT.md).
+
+## 6. Physical validation
+
+- `tests/test_physics.py` and `scripts/physics_checks.py` check every block on its
+  own: TB size against 38.214, DMRS layout and power, channel energy, delay spread,
+  Jakes time correlation, frequency and spatial correlation, SNR and INR calibration,
+  covariance estimators, receiver identities (IRC ≡ L-MMSE without interference).
+- In the random-channel campaign the perfect-CSI working point follows the theoretical
+  post-IRC SINR (correlation 0.93–0.97); the gap to Shannon is 1.2 / 2.6 / 3.4 dB for
+  QPSK / 16QAM / 64QAM, as expected for BICM with max-log demapping and short LDPC
+  blocks.
