@@ -4,7 +4,7 @@
     .venv/bin/python scripts/campaigns/report_paper_ce.py reports/paper_ce [models/paper_ce]
 
 Reads <dir>/nmse/nmse.json, <dir>/campaigns/{ce,incm}/*/*.json and
-<models>/train_meta.json; writes <dir>/REPORT.md (Russian) and figures.
+<models>/train_meta.json; writes <dir>/REPORT.md and figures.
 """
 
 from __future__ import annotations
@@ -43,61 +43,61 @@ def f(v, nd=1):
 
 L: list[str] = []
 add = L.append
-add("# Оценщики канала из EqDeepRx и A-MMSE в симуляторе WirelessNN\n")
-add("""Статьи:
+add("# Channel estimators from EqDeepRx and A-MMSE in the WirelessNN simulator\n")
+add("""Papers:
 - **EqDeepRx** — M. Honkala, D. Korpi, E. Raninen, J. Huttunen, *EqDeepRx: Learning a Scalable MIMO Receiver*, arXiv:2602.11834 (Nokia Bell Labs).
 - **A-MMSE** — T. Ha, C. Jung, H. Kim, J. Park, J. Park, *Learning MMSE Filters for OFDM Channel Estimation: Attention Transformer Gains at Linear Inference*, arXiv:2506.00452v5.
 
-Код: `nr_ul_sim/paper_ce.py` (оценщики), `nr_ul_sim/interference.py` (INCM), `scripts/training/train_paper_ce.py` (обучение), `scripts/training/eval_paper_ce.py` (NMSE), `scripts/campaigns/run_paper_ce_campaign.sh` (BER/BLER), `tests/test_paper_ce.py`.
+Code: `nr_ul_sim/paper_ce.py` (estimators), `nr_ul_sim/interference.py` (INCM), `scripts/training/train_paper_ce.py` (training), `scripts/training/eval_paper_ce.py` (NMSE), `scripts/campaigns/run_paper_ce_campaign.sh` (BER/BLER), `tests/test_paper_ce.py`.
 """)
 
-add("## 1. Что взято из статей и как перенесено на PUSCH 68 PRB\n")
-add("""| имя | статья | метод | адаптация |
+add("## 1. What was taken from the papers and how it was adapted to 68-PRB PUSCH\n")
+add("""| name | paper | method | adaptation |
 |---|---|---|---|
-| `ls_fir` | EqDeepRx, Sec. II-B (baseline) | LS на пилотах → статический фильтр сглаживания по частоте → линейная интерполяция | КИХ 17 отводов (Ханн × sinc), полоса задержек [−1, +3] мкс, нормировка на краях полосы |
-| `denoise_nn` | EqDeepRx, Sec. III-A | LS → DenoiseNN (1D-свёртки по частоте с даунсэмплингом, 1×1-миксер по DMRS-символам, на каждую пару RX-антенна/слой) → линейная интерполяция | 4 subsampled residual blocks, 32 канала; обучена отдельно на MSE канала (в статье — end-to-end через BCE приёмника) |
-| INCM `--iot-cov incm_oas` | EqDeepRx, Sec. II-C | ковариация помехи+шума по остатку на DMRS `y − Ĥp`, полоса 2 PRB, линейная усадка к tr(S)/p·I | вес усадки — оракул для комплексного гауссова случая с несмещёнными оценками моментов (OAS-подобный) |
-| `lmmse_data` | A-MMSE, Sec. III-A ("LMMSE mismatch") | 2D LMMSE с ковариацией, оценённой по обучающим каналам | R(t₁,t₂,Δf) по WSS-предположению из 18 432 обучающих сеток, смещённая оценка (PSD) |
-| `lmmse_data_1d` | A-MMSE, eq. (9) | 1D LMMSE по частоте на каждом DMRS-символе + интерполяция во времени | та же ковариация |
-| `a_mmse` | A-MMSE, Sec. IV | двухступенчатый Attention-энкодер (частота → время) + ResFC-декодер учат **один фиксированный линейный фильтр W** | фильтр на блок 4 PRB (48 поднесущих × 14 символов из 2×12 пилотных значений), один и тот же для всех 17 блоков; банк фильтров по SNR (−10…35 дБ, шаг 5) и по смещению гребёнки CDM-группы; выбор по N0 |
-| `ra_a_mmse` | A-MMSE, Sec. V | W·U·Vᵀ с обучаемыми U, V ранга r | r = 6 из 24 (25 %) |
+| `ls_fir` | EqDeepRx, Sec. II-B (baseline) | LS on the pilots → static frequency smoothing filter → linear interpolation | 17-tap FIR (Hann × sinc), delay band [−1, +3] µs, normalised at the band edges |
+| `denoise_nn` | EqDeepRx, Sec. III-A | LS → DenoiseNN (1D convolutions over frequency with downsampling, 1×1 mixer over DMRS symbols, per RX antenna / layer pair) → linear interpolation | 4 subsampled residual blocks, 32 channels; trained on its own with channel MSE (the paper trains end to end through the receiver BCE) |
+| INCM `--iot-cov incm_oas` | EqDeepRx, Sec. II-C | interference-plus-noise covariance from the DMRS residual `y − Ĥp`, 2-PRB bands, linear shrinkage towards tr(S)/p·I | shrinkage weight: oracle for the complex Gaussian case with unbiased moment estimates (OAS-like) |
+| `lmmse_data` | A-MMSE, Sec. III-A ("LMMSE mismatch") | 2D LMMSE with a covariance estimated from training channels | R(t₁,t₂,Δf) under a WSS assumption from 18 432 training grids, biased (PSD) estimate |
+| `lmmse_data_1d` | A-MMSE, eq. (9) | 1D LMMSE over frequency on each DMRS symbol + time interpolation | same covariance |
+| `a_mmse` | A-MMSE, Sec. IV | two-stage attention encoder (frequency → time) + ResFC decoder learn **one fixed linear filter W** | one filter per 4-PRB block (48 subcarriers × 14 symbols from 2×12 pilot values), shared by all 17 blocks; filter bank over SNR (−10…35 dB, step 5) and CDM-group comb offset; selected by N0 |
+| `ra_a_mmse` | A-MMSE, Sec. V | W·U·Vᵀ with trainable U, V of rank r | r = 6 of 24 (25 %) |
 
-Общее для всех: вход — CDM-деспредированные LS-оценки одной RX-антенны и одного слоя (по одному значению на 4-поднесущий DMRS-блок; 68 PRB → 2×204 значения). Обучение (EqDeepRx-протокол): UMa, скорость U(0, 35 м/с), 1–2 UE × ранг 1–2, 68 PRB, 4 RX-антенны, SNR U(−10, 40) дБ для DenoiseNN и фиксированный SNR на каждый фильтр A-MMSE. UMi, CDL-B, CDL-C — **вне обучающего распределения**.
+Common to all: the input is the CDM-despread LS estimate of one RX antenna and one layer (one value per 4-subcarrier DMRS block; 68 PRB → 2×204 values). Training (EqDeepRx protocol): UMa, speed U(0, 35 m/s), 1–2 UE × rank 1–2, 68 PRB, 4 RX antennas, SNR U(−10, 40) dB for DenoiseNN and a fixed SNR per A-MMSE filter. UMi, CDL-B and CDL-C are **outside the training distribution**.
 """)
 
 # ------------------------------------------------------------------ training
 meta_p = M / "train_meta.json"
 if meta_p.exists():
     meta = json.loads(meta_p.read_text())
-    add("## 2. Обучение (валидация на UMa)\n")
-    add(f"Обучающих выборок (RX-антенна × слой): {meta['train_samples']}, валидационных: {meta['val_samples']}, время {meta['duration_s'] / 60:.0f} мин на RTX PRO 4000.\n")
+    add("## 2. Training (validation on UMa)\n")
+    add(f"Training samples (RX antenna × layer): {meta['train_samples']}, validation: {meta['val_samples']}, time {meta['duration_s'] / 60:.0f} min on an RTX PRO 4000.\n")
     v = meta["val_nmse_db_full_grid"]
-    add("| SNR, дБ | LS + лин. интерп. | DenoiseNN | LMMSE (данные) |")
+    add("| SNR, dB | LS + lin. interp. | DenoiseNN | LMMSE (data) |")
     add("|---|---|---|---|")
     for snr in sorted(v, key=float):
         r = v[snr]
         add(f"| {snr} | {f(r.get('ls_lin_interp'))} | {f(r.get('denoise_nn'))} | {f(r.get('lmmse_data'))} |")
     a = meta["val_nmse_db_ammse_chunks"]
-    add("\nA-MMSE на блоках 4 PRB (NMSE, дБ; comb 0):\n")
-    add("| SNR | LS лин. | A-MMSE фикс. W | A-MMSE W(x) по входу | фикс. W, дообученный напрямую | RA-A-MMSE r=6 |")
+    add("\nA-MMSE on 4-PRB blocks (NMSE, dB; comb 0):\n")
+    add("| SNR | LS lin. | A-MMSE fixed W | A-MMSE input-dependent W(x) | fixed W, fine-tuned directly | RA-A-MMSE r=6 |")
     add("|---|---|---|---|---|---|")
     for k, r in a.items():
         if k.startswith("c0_"):
             add(f"| {k.split('snr')[1]} | {f(r['ls_lin_interp'])} | {f(r['a_mmse_fixed'])} | {f(r['a_mmse_adaptive'])} | {f(r['fixed_filter_finetuned'])} | {f(r['ra_a_mmse'])} |")
-    add("\nФиксированный W (среднее выходов сети, как в статье: «one final A-MMSE filter») не хуже входозависимого W(x) — подтверждение, что A-MMSE сходится к лучшему фиксированному линейному фильтру; прямое дообучение W даёт ещё немного (это и есть предел, о котором говорит статья).\n")
+    add("\nThe fixed W (mean of the network outputs, as in the paper: \"one final A-MMSE filter\") is no worse than the input-dependent W(x), confirming that A-MMSE converges to the best fixed linear filter; fine-tuning W directly gains a little more (that is the limit the paper refers to).\n")
 
 # ------------------------------------------------------------------ NMSE in the simulator
 nm_p = D / "nmse" / "nmse.json"
 if nm_p.exists():
     nm = json.loads(nm_p.read_text())
-    add("## 3. NMSE в симуляторе (68 PRB, все оценщики)\n")
+    add("## 3. NMSE in the simulator (68 PRB, all estimators)\n")
     add("![NMSE](nmse/nmse.png)\n")
-    add("`eval_paper_ce.py --slots 256 --batch 16`: 256 слотов на точку, одни и те же реализации канала "
-        "на всех SNR (seed сбрасывается перед каждой точкой). NMSE = Σ|Ĥ−H|² / Σ|H|² по всем слотам.\n")
+    add("`eval_paper_ce.py --slots 256 --batch 16`: 256 slots per point, the same channel realisations "
+        "at every SNR (the seed is reset before each point). NMSE = Σ|Ĥ−H|² / Σ|H|² over all slots.\n")
     ests = list(next(iter(nm.values()))["nmse_db"])
     for snr in (0.0, 10.0, 20.0):
-        add(f"**SNR {snr:g} дБ**, NMSE в дБ (жирным — лучший реализуемый):\n")
-        add("| сценарий | " + " | ".join(label(e) for e in ests) + " |")
+        add(f"**SNR {snr:g} dB**, NMSE in dB (bold: best realisable):\n")
+        add("| scenario | " + " | ".join(label(e) for e in ests) + " |")
         add("|---|" + "---|" * len(ests))
         for lab, r in nm.items():
             i = r["snr_db"].index(snr)
@@ -112,8 +112,8 @@ camps = {}
 for p in sorted((D / "campaigns").glob("*/*/*.json")):
     camps[p.parent.name] = json.loads(p.read_text())
 if camps:
-    add("## 4. Link-level: рабочая точка IRC (68 PRB)\n")
-    add(f"{len(camps)} кампаний. Рабочая точка — SNR при BER = 1e-2 (и BLER = 0.1), потеря — относительно идеальной CSI на тех же слотах.\n")
+    add("## 4. Link level: IRC working point (68 PRB)\n")
+    add(f"{len(camps)} campaigns. Working point: SNR at BER = 1e-2 (and BLER = 0.1); loss relative to perfect CSI on the same slots.\n")
     loss = collections.defaultdict(list)
     loss_b = collections.defaultdict(list)
     rows = []
@@ -137,14 +137,14 @@ if camps:
                             if wb is not None and pb is not None:
                                 loss_b[key].append(wb - pb)
                     rows.append((ch, mod, f"{u}UE r{r}", float(iot), p, vals))
-    add("### 4.1 Медианная потеря рабочей точки, дБ (BER = 1e-2 / BLER = 0.1)\n")
-    groups = ["все"] + CH + MODS + [f"{u}UE r{r}" for u, r in CFGS] + ["IoT 0", "IoT 10"]
-    add("| оценщик | " + " | ".join(groups) + " | не достигнута |")
+    add("### 4.1 Median working-point loss, dB (BER = 1e-2 / BLER = 0.1)\n")
+    groups = ["all"] + CH + MODS + [f"{u}UE r{r}" for u, r in CFGS] + ["IoT 0", "IoT 10"]
+    add("| estimator | " + " | ".join(groups) + " | not reached |")
     add("|---|" + "---|" * (len(groups) + 1))
     for e in CAMP_EST:
         cells = []
         for g in groups:
-            k = e if g == "все" else (e, g)
+            k = e if g == "all" else (e, g)
             a1, a2 = loss.get(k, []), loss_b.get(k, [])
             cells.append(f"{np.median(a1):.2f} / {np.median(a2):.2f}" if a1 and a2 else "—")
         miss = sum(1 for row in rows if row[5][CAMP_EST.index(e)] is None and row[4] is not None)
@@ -165,8 +165,8 @@ if camps:
     fig.savefig(D / "ce_loss.png", dpi=130)
     plt.close(fig)
     add("![CE loss](ce_loss.png)\n")
-    add("### 4.2 Все рабочие точки (BER = 1e-2), дБ\n")
-    add("| канал | мод. | UE | IoT | perfect | " + " | ".join(label(e) for e in CAMP_EST) + " |")
+    add("### 4.2 All working points (BER = 1e-2), dB\n")
+    add("| channel | mod. | UE | IoT | perfect | " + " | ".join(label(e) for e in CAMP_EST) + " |")
     add("|---|---|---|---|---|" + "---|" * len(CAMP_EST))
     for ch, mod, cfg, iot, p, vals in rows:
         best = min([v for v in vals if v is not None], default=None)
@@ -175,9 +175,9 @@ if camps:
 
     inc = [(k, v) for k, v in camps.items() if k.startswith("incm_")]
     if inc:
-        add("### 4.3 Ковариация помехи для IRC (16QAM, 1 интерферент)\n")
-        add("Рабочая точка BER = 1e-2, дБ. `perfect` — истинная ковариация, `residual` — широкополосная по остатку DMRS, `incm_oas` — EqDeepRx INCM (2 PRB + усадка).\n")
-        add("| канал | UE | IoT | метод | " + " | ".join(f"IRC/{label(e)}" for e in ("ls_lin", "denoise_nn", "lmmse_data")) + " | L-MMSE/LS-lin |")
+        add("### 4.3 Interference covariance for IRC (16QAM, 1 interferer)\n")
+        add("Working point at BER = 1e-2, dB. `perfect`: true covariance, `residual`: wideband from the DMRS residual, `incm_oas`: EqDeepRx INCM (2 PRB + shrinkage).\n")
+        add("| channel | UE | IoT | method | " + " | ".join(f"IRC/{label(e)}" for e in ("ls_lin", "denoise_nn", "lmmse_data")) + " | L-MMSE/LS-lin |")
         add("|---|---|---|---|---|---|---|---|")
         for ch in ("uma", "cdl-c"):
             for nue in ("1", "2"):

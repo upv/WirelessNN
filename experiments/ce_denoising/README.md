@@ -1,138 +1,132 @@
-# Датасет для очистки LS оценки канала
+# Dataset for denoising the LS channel estimate
 
-Эксперимент строит пары **LS → истинный канал** для обучения channel estimation,
-сохраняя наблюдение, тепловой шум, интерференцию и переданные QAM-символы. Полоса
-**16 PRB**: 192 используемые поднесущие, FFT 256, 14 OFDM-символов, SCS 30 кГц,
-несущая 3.5 ГГц. Один целевой UE, rank 1, одна TX-антенна, четыре RX-порта.
-Все сигналы сохранены в частотной области, complex64.
+This experiment builds **LS estimate → true channel** pairs for training channel
+estimators. Next to each pair it stores the received grid, thermal noise,
+interference and the transmitted QAM symbols, so channel MSE and bit-level losses
+can both be computed. Band: **16 PRB** (192 used subcarriers, FFT 256), 14 OFDM
+symbols, 30 kHz SCS, 3.5 GHz carrier. One target UE, rank 1, one TX antenna, four
+RX ports. All signals are frequency-domain complex64.
 
-Результаты пробного запуска и сравнение линейных оценок — в [REPORT.md](REPORT.md).
-Оценка на 20 250 записях и сравнение с пилотом, включая старые и новые фильтры
-на одинаковых 4050 test-каналах, — в [отчёте большого набора](evaluation_20k/REPORT.md).
+Results of the linear baselines on 900 and 20 250 realisations are in
+[REPORT.md](REPORT.md).
 
-## Запуск
+## Running
 
-Из корня репозитория в существующем окружении WirelessNN:
+From the repository root, in the WirelessNN environment:
 
 ```bash
-# 900 независимых реализаций; GPU выбирается автоматически, CPU также поддерживается.
-OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 .venv/bin/python -u \
-  -m experiments.ce_denoising.generate \
-  --outdir experiments/ce_denoising/data/pilot_16prb \
-  --counts 540 180 180
+# 900 independent realisations (540 / 180 / 180); GPU is picked automatically, CPU works too.
+OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 python -u -m experiments.ce_denoising.generate \
+  --outdir experiments/ce_denoising/data/pilot_16prb --counts 540 180 180
 
-# Обучение линейных фильтров, настройка на validation и оценка на test.
-OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 .venv/bin/python -u \
-  -m experiments.ce_denoising.analyze \
-  --dataset experiments/ce_denoising/data/pilot_16prb \
-  --outdir experiments/ce_denoising/reports
+# Fit the linear filters on train, tune on validation, evaluate on test.
+OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 python -u -m experiments.ce_denoising.analyze \
+  --dataset experiments/ce_denoising/data/pilot_16prb --outdir experiments/ce_denoising/reports
 
-.venv/bin/python -m pytest experiments/ce_denoising/tests -q
-
-.venv/bin/python -m experiments.ce_denoising.audit \
-  --dataset experiments/ce_denoising/data/pilot_16prb
+# File, identity and label audit of a generated dataset; unit tests.
+python -m experiments.ce_denoising.audit --dataset experiments/ce_denoising/data/pilot_16prb
+python -m pytest experiments/ce_denoising/tests -q
 ```
 
-Размер каждой выборки — положительное число, кратное 45. Для проверки записи
-одного примера: `--counts 45 45 45 --limit 1`. `--resume` продолжает существующий
-набор при совпадении рецепта, исходников генератора/симулятора и версий библиотек.
-Проверяются SHA-256 файлов уже записанных примеров. Новый запуск без `--resume`
-не перезаписывает каталог. `--limit` ограничивает общее количество записей при
-разработке, не меняя план выборки.
+Each split size must be a positive multiple of 45 (5 channels × 3 IoT × 3 SNR
+bands). `--counts 45 45 45 --limit 1` writes a single example for a quick check.
+`--limit` caps the number of records without changing the sampling plan.
+`--resume` continues an existing dataset only if the recipe, the generator and
+simulator sources and the library versions match; the SHA-256 of every record
+already written is verified. Without `--resume` an existing directory is never
+overwritten.
 
-Каждый пример сначала записывается в `.pending` и затем переименовывается
-атомарно. При аварии `.pending` и `.writer.lock` требуют проверки и явного удаления
-оператором; параллельные писатели в один каталог запрещены. Генерация прекращается
-при остатке менее 2 GiB перед очередной записью. Для длительных запусков задайте
-внешний `timeout`; этот генератор не запускает бессрочную фоновую задачу.
+Each record is written to `.pending` and renamed atomically. After a crash,
+`.pending` and `.writer.lock` must be inspected and removed by hand; parallel
+writers into one directory are refused. Generation stops when less than 2 GiB of
+disk is left. The generator does not daemonise; wrap long runs in `timeout`.
 
-## Случайные параметры
+## Random parameters
 
-Для каждого split случайно перемешиваются страты из пяти каналов × трёх IoT ×
-трёх диапазонов SNR. SNR внутри диапазона выбирается равномерно; совокупная
-выборка покрывает **−20…10 dB равномерно**. Тип канала и IoT имеют равные доли.
-Модуляция случайно выбирается из QPSK, 16QAM, 64QAM, число настроенных
-интерфереров — равномерно из **2…6**. Независимые seeds определяются до генерации;
-добавление шумовых аугментаций в будущем не должно менять split исходного канала.
+Each split shuffles strata of five channels × three IoT levels × three SNR bands.
+SNR is uniform inside its band, so the whole set covers **−20…10 dB uniformly**;
+channel family and IoT have equal shares. Modulation is drawn from QPSK, 16QAM and
+64QAM, and the number of configured interferers uniformly from **2…6**. All seeds
+are fixed before generation, so adding noise augmentations later does not change
+the channel split.
 
-**IoT=0 означает отсутствие интерференции.** Каналы 2…6 потенциальных
-интерфереров и их параметры всё равно сохраняются, но их амплитудный множитель
-равен нулю и `num_interferers_active=0`. IoT=10/20 — суммарное I/N=10/100,
-распределённое поровну по мощности между интерферерами. SNR относится к
-нормированному каналу и мощности одного RE на приёмной антенне, не к Eb/N0.
+**IoT = 0 means no interference.** The channels of the 2…6 potential interferers
+and their parameters are still stored, but their amplitude is zero and
+`num_interferers_active = 0`. IoT = 10 / 20 dB means a total I/N of 10 / 100,
+split equally in power among the interferers. SNR refers to the normalised
+channel and one RE per receive antenna, not Eb/N0.
 
-Целевой UE и каждый интерферер получают независимую скорость **3…30 км/ч**,
-направление движения и реализацию многолучевого канала:
+The target UE and every interferer get an independent speed of **3…30 km/h**,
+direction of motion and multipath realisation:
 
-- CDL-B/C/D: масштаб delay spread log-uniform 20…1000 ns; угловые масштабы
-  0.5…2, случайные средние углы, jitter углов и задержек из `random_channels.py`.
-  У CDL-D дополнительно K-factor 0…15 dB. Это вариации CDL-профилей, а не
-  неизменённые табличные профили. Масштаб DS не равен измеренному RMS DS после
-  perturbation, K-factor и антенных диаграмм.
-- UMa/UMi: случайная геометрия сектора, indoor/LoS, коррелированные LSP,
-  задержки, мощности, углы и XPR лучей из модели Sionna. DS следует совместному
-  распределению UMa/UMi; его не заменяют независимым равномерным числом. Заданная
-  скорость 3…30 применяется также к indoor UE; это выбранный диапазон датасета.
-- В одной записи все связи используют выбранное семейство канала. Топологии,
-  лучи и скорости целевой связи и интерфереров независимы; это не общий
-  многосотовый геометрический layout.
+- CDL-B/C/D: delay-spread scale log-uniform 20…1000 ns, angular scales 0.5…2,
+  random mean angles and angle/delay jitter from `nr_ul_sim/random_channels.py`;
+  CDL-D also gets a K-factor of 0…15 dB. These are perturbed CDL profiles, not the
+  tabulated ones, and the DS scale is not the RMS DS measured after perturbation,
+  K-factor and antenna patterns.
+- UMa/UMi: random sector geometry, indoor/LoS state, correlated large-scale
+  parameters, ray delays, powers, angles and XPR from the Sionna model. DS follows
+  the joint UMa/UMi distribution. The 3…30 km/h range also applies to indoor UEs.
+- All links of one record use the same channel family. Topologies, rays and speeds
+  of the target and the interferers are independent; this is not a common
+  multi-cell layout.
 
-Волновая форма цели — кодированный NR PUSCH с DMRS Type 1, MCS table 1:
-QPSK/index 5, 16QAM/index 14, 64QAM/index 20. Интерфереры передают независимые
-комплексные Gaussian OFDM-символы на используемых поднесущих, как в основном
-симуляторе. Это пространственно окрашенная интерференция, но **не пилотное
-загрязнение синхронными DMRS соседних PUSCH**. Для такой задачи потребуется
-отдельный набор с кодированными соседними UE и выбором их pilot IDs.
+The target waveform is coded NR PUSCH with DMRS Type 1, MCS table 1: QPSK index 5,
+16QAM index 14, 64QAM index 20. Interferers transmit independent complex Gaussian
+OFDM symbols on the used subcarriers, as in the main simulator. This is spatially
+coloured interference, **not pilot contamination by synchronous DMRS of
+neighbouring PUSCH**; that needs a separate dataset with coded neighbouring UEs.
 
-Каналы меняются внутри одного слота по Доплеру. Нормировка применяется по полной
-FFT-сетке на каждую связь, как у `GenerateOFDMChannel`; сохранена фактическая
-мощность в используемой полосе. Pathloss/shadow fading отключены, SNR задаётся
-отдельно. Модель частотной области не моделирует ISI/ICI, ошибки синхронизации,
-CFO или превышение задержкой циклического префикса; особенно длинные хвосты
-каналов следует отдельно проверять моделью временной области.
+Channels vary within the slot with Doppler. Each link is normalised over the full
+FFT grid, as `GenerateOFDMChannel` does; the actual power in the used band is
+stored. Path loss and shadow fading are off and SNR is set separately. The
+frequency-domain model has no ISI/ICI, synchronisation errors, CFO or delays
+beyond the cyclic prefix; check very long channel tails with a time-domain model.
 
-## Что хранится
+## What is stored
 
-`data/.../config.json` содержит рецепт, версии, Git revision и SHA-256 исходников.
-`index.jsonl` задаёт состав train/validation/test. Каждый `records/<id>/` содержит
-`sample.npz`, `parameters.npz`, `meta.json`. Чтение: `np.load(..., allow_pickle=False)`.
+`data/.../config.json` holds the recipe, library versions, Git revision and the
+SHA-256 of the sources. `index.jsonl` lists the train/validation/test split. Each
+`records/<id>/` contains `sample.npz`, `parameters.npz` and `meta.json`; read them
+with `np.load(..., allow_pickle=False)`.
 
-Здесь R=4, T=14, F=192, D=2, M=48, K=2…6. Из тензоров убраны только единичные
-оси batch/RX-site/UE/layer. Масштаб/порядок осей не меняются между модуляциями.
+Shapes use R = 4 RX ports, T = 14 symbols, F = 192 subcarriers, D = 2 DMRS
+symbols, M = 48 CDM blocks, K = 2…6 interferers. Only singleton batch / RX-site /
+UE / layer axes are dropped; scale and axis order are the same for all
+modulations.
 
-| Ключ в sample.npz | Форма | Назначение |
+| Key in `sample.npz` | Shape | Purpose |
 | --- | --- | --- |
-| `h_ls` | R,T,F | Основной вход: Sionna PUSCH LS с CDM despreading и линейной интерполяцией |
-| `h_true` | R,T,F | Цель для complex MSE, включая ту же нормировку, что у передаваемого сигнала |
-| `ls_pilots` | R,D,M | LS после усреднения двух пилотов в четырёхподнесущем CDM-блоке; компактный вход |
-| `h_ls_clean`, `h_ls_noise`, `h_ls_interference` | R,T,F | Разложение LS-входа на чистую интерполированную оценку и две помехи |
-| `ls_pilots_clean`, `ls_pilots_noise`, `ls_pilots_interference` | R,D,M | Такое же разложение до интерполяции |
-| `y`, `y_target`, `noise`, `interference` | R,T,F | Полное наблюдение и отдельные составляющие |
-| `interference_per_link`, `h_interferers` | K,R,T,F | Принятые вклады и нормированные каналы каждого интерферера |
-| `x_interferers_unit`, `x_interferers_scaled` | K,T,F | Символы интерфереров до/после множителя мощности |
-| `x_tx`, `pilot_grid`, `pilot_reserved_mask`, `data_mask` | T,F | Передаваемая цель, DMRS и маски; data_mask исключает целиком DMRS-символы |
-| `tx_data_symbols` | 2304 | Переданные QAM-символы в row-major порядке `x_tx[data_mask]` |
-| `tx_coded_bits` | 2304,Qm | Битовые метки этих QAM-символов, после кодирования и scrambling |
-| `tx_tb_bits` | TB size | Исходный transport block для последующей проверки декодера |
-| `dmrs_symbols`, `pilot_block_centres_sc` | D; M | Индексы DMRS и центры LS-блоков, нумерация с нуля |
-| `cir_target_a`, `cir_interferer_a` | Sionna CIR layout | Фактические комплексные коэффициенты путей до частотной нормировки |
-| `cir_target_tau_s`, `cir_interferer_tau_s` | Sionna delay layout | Задержки путей в секундах |
+| `h_ls` | R,T,F | Main input: Sionna PUSCH LS with CDM despreading and linear interpolation |
+| `h_true` | R,T,F | Target for complex MSE, with the same normalisation as the transmitted signal |
+| `ls_pilots` | R,D,M | LS after averaging the two pilots of each 4-subcarrier CDM block; compact input |
+| `h_ls_clean`, `h_ls_noise`, `h_ls_interference` | R,T,F | Decomposition of the LS input into noiseless interpolated estimate, noise and interference |
+| `ls_pilots_clean`, `ls_pilots_noise`, `ls_pilots_interference` | R,D,M | The same decomposition before interpolation |
+| `y`, `y_target`, `noise`, `interference` | R,T,F | Received grid and its components |
+| `interference_per_link`, `h_interferers` | K,R,T,F | Received contribution and normalised channel of each interferer |
+| `x_interferers_unit`, `x_interferers_scaled` | K,T,F | Interferer symbols before / after the power factor |
+| `x_tx`, `pilot_grid`, `pilot_reserved_mask`, `data_mask` | T,F | Transmitted grid, DMRS and masks; `data_mask` excludes whole DMRS symbols |
+| `tx_data_symbols` | 2304 | Transmitted QAM symbols, row-major `x_tx[data_mask]` |
+| `tx_coded_bits` | 2304,Qm | Bit labels of those symbols, after coding and scrambling |
+| `tx_tb_bits` | TB size | Original transport block, for checking a decoder |
+| `dmrs_symbols`, `pilot_block_centres_sc` | D; M | DMRS symbol indices and LS block centres, zero-based |
+| `cir_target_a`, `cir_interferer_a` | Sionna CIR layout | Complex path coefficients before frequency normalisation |
+| `cir_target_tau_s`, `cir_interferer_tau_s` | Sionna delay layout | Path delays in seconds |
 
 CIR layout: `[batch, RX-site, RX-ant, TX, TX-ant, path, time]`; delays:
-`[batch, RX-site, TX, path]`. Точные shapes/dtypes всех массивов есть в `meta.json`.
-CIR и нормированный H — разные представления: для воспроизведения H нужно
-снова вызвать `cir_to_ofdm_channel(..., normalize=True)` на полной FFT-сетке,
-затем убрать guards. Коэффициенты CIR сами по себе не имеют единичной энергии.
+`[batch, RX-site, TX, path]`. Exact shapes and dtypes of every array are in
+`meta.json`. To rebuild the normalised H from the CIR, call
+`cir_to_ofdm_channel(..., normalize=True)` on the full FFT grid and strip the
+guards; the CIR coefficients alone do not have unit energy.
 
-`parameters.npz` хранит CDL cluster tables или UMa/UMi ray/topology arrays и
-доступные числовые параметры Sionna model/scenario/LSP/rays, включая скорости,
-ориентации, LoS, delays/powers/angles/XPR. Seed и фактический CIR сохраняют
-воспроизводимость реализации без необходимости угадывать фазы лучей.
-`meta.json` содержит sampled/resolved конфигурацию, per-link параметры, N0,
-номинальную мощность интерференции, измеренные SNR/INR, scaling и checksums.
-Эти служебные файлы идут вместе с данными, но не включаются в Git.
+`parameters.npz` stores the CDL cluster tables or the UMa/UMi ray and topology
+arrays, plus the numeric Sionna model / scenario / LSP / ray parameters (speeds,
+orientations, LoS, delays, powers, angles, XPR). Together with the seed and the CIR
+this makes every realisation reproducible. `meta.json` holds the sampled and
+resolved configuration, per-link parameters, N0, nominal interference power,
+measured SNR/INR, scaling and checksums.
 
-До записи проверяются тождества:
+Before a record is written these identities are checked:
 
 ```text
 y = h_true * x_tx + noise + interference
@@ -140,81 +134,74 @@ interference = sum_k(h_interferers[k] * x_interferers_scaled[k])
 h_ls = h_ls_clean + h_ls_noise + h_ls_interference
 ```
 
-Важно: `h_ls_clean` — результат noiseless LS/interpolation, не `h_true`. Разность
-показывает интерполяционное смещение и потери от CDM-усреднения. Любые `*_clean`,
-раздельные шум/интерференция и истинные каналы — labels/диагностика, их нельзя
-случайно подавать на вход обучаемой сети.
+`h_ls_clean` is the noiseless LS + interpolation result, not `h_true`; the
+difference is the interpolation and CDM-averaging bias. Every `*_clean` array,
+the separate noise / interference and the true channels are labels and
+diagnostics: never feed them to a trained network as input.
 
-## Использование для обучения
+## Training with it
 
 ```python
+import torch
 from experiments.ce_denoising.dataset import CEDataset
 from experiments.ce_denoising.losses import channel_mse, symbol_bce
-import torch
 
-sample = CEDataset('experiments/ce_denoising/data/pilot_16prb',
-                   split='train', include_bce=True)[0]
-# complex -> real channels: пример, соглашение сети выбирается отдельно.
-x = torch.view_as_real(sample['input'])       # [4,14,192,2]
-# h_pred = ...                               # complex [4,14,192]
-# loss_mse = channel_mse(h_pred, sample['target'])
-# loss_bce = symbol_bce(h_pred, sample['y'], sample['x_tx'],
-#                      sample['data_mask'], sample['modulation'],
-#                      sample['disturbance_variance'])
+sample = CEDataset("experiments/ce_denoising/data/pilot_16prb",
+                   split="train", include_bce=True)[0]
+x = torch.view_as_real(sample["input"])      # [4, 14, 192, 2]; the network layout is up to you
+# h_pred = model(...)                        # complex [4, 14, 192]
+# loss_mse = channel_mse(h_pred, sample["target"])
+# loss_bce = symbol_bce(h_pred, sample["y"], sample["x_tx"], sample["data_mask"],
+#                       sample["modulation"], sample["disturbance_variance"])
 ```
 
-`channel_mse` считает mean(|Hhat−H|²). Среднее по real/imag отдельно даст вдвое
-меньшее число. NMSE в отчёте — sum(|Hhat−H|²)/sum(|H|²), затем 10 log10.
+`channel_mse` is mean(|Ĥ − H|²); averaging real and imaginary parts separately
+would give half that number. NMSE in the report is sum(|Ĥ − H|²) / sum(|H|²) in dB.
 
-BCE нельзя считать непосредственно между комплексными Hhat и H. Здесь сначала
-выполняется дифференцируемое SIMO combining, затем exact QAM bit likelihood и
-BCE по переданным **кодированным QAM-битам**. Исходные TB-биты не совпадают с
-этими метками. `symbol_bce` использует известное номинальное N0+I0 и приближение
-пространственно белой Gaussian помехи; covariance и неопределённость Hhat
-не учитываются. Это диагностический surrogate, а не coded BER/BLER после LDPC.
-В отчёте BCE усредняется по битам одного примера, затем по примерам; это не
-единое среднее по всем битам датасета при разных модуляциях.
+BCE cannot be computed between complex Ĥ and H directly. `symbol_bce` runs a
+differentiable SIMO combiner, exact QAM bit likelihoods, and BCE against the
+transmitted **coded QAM bits** (not the TB bits). It uses the known nominal N0 + I0
+and a spatially white Gaussian disturbance model, ignoring the interference
+covariance and the uncertainty of Ĥ. It is a training surrogate, not coded BER/BLER
+after LDPC. In the report BCE is averaged over the bits of a record, then over
+records.
 
-При оценке BCE методам даётся одинаковая мощность I+N. Для обучаемой сети её
-можно включить в auxiliary input или заменить оценкой из наблюдений. Для
-смешанных модуляций считайте loss по группам с весом по числу бит; простой mean
-трёх групп иначе перевесит QPSK. MSE можно считать одним батчем.
+All methods get the same I + N power when BCE is evaluated. A trained network can
+receive it as an auxiliary input or estimate it from the observation. With mixed
+modulations, weight the per-modulation BCE by the number of bits; a plain mean of
+the three groups overweights QPSK. MSE can be computed in one batch.
 
-## Линейные методы и протокол
+## Linear baselines and protocol
 
-Ковариации и линейная регрессия обучаются на train, регуляризация выбирается по
-MSE на validation. Test не участвует ни в выборе коэффициентов, ни в настройке
-гиперпараметров. На одной реализации сравниваются:
+Covariances and regressions are fitted on train, regularisation is chosen by MSE on
+validation, and test is used only for the final numbers. Compared on the same
+realisations:
 
-1. LS с линейной интерполяцией; LS с усреднением во времени.
-2. Фиксированное окно DFT −1…+3 мкс и интерполяция во времени.
-3. `ridge_input_only`: одна общая affine linear map из 96 комплексных LS-пилотов
-   на 2688 RE, одинаковая для всех антенн и условий. Использует только LS.
-4. `lmmse_known_inr`: covariance/cross-covariance чистого канала по train и
-   диагональная модель ошибки пилотов `(N0+I0)/4`. Коэффициент мощности подбирается
-   по validation. Этот фильтр линейный при заданном N0/IoT, но условный по
-   дополнительным известным параметрам; преимуществом только обработки LS
-   его считать нельзя.
-5. Нулевая оценка как sanity baseline; noiseless LS как interpolation floor;
-   истинный H как диагностический reference для BCE.
+1. LS with linear interpolation; LS averaged over the two DMRS symbols.
+2. A fixed DFT window of −1…+3 µs plus time interpolation.
+3. `ridge_input_only`: one shared affine map from the 96 complex LS pilots to the
+   2688 REs, the same for every antenna and condition. Uses only LS.
+4. `lmmse_known_inr`: train-set covariance and cross-covariance of the clean
+   channel, plus a diagonal pilot-error model `(N0 + I0) / 4` with a power factor
+   tuned on validation. It is linear for given N0 / IoT but uses that extra known
+   information, so it is not an LS-only method.
+5. Zero estimate as a sanity baseline, noiseless LS as the interpolation floor,
+   true H as the BCE reference.
 
-Ковариации пространственного канала разных RX-портов в этих фильтрах не
-используются: одна map обучается на строках всех антенн. Сэмплы антенн одного
-канала коррелированы. Поэтому bootstrap 95% intervals в отчёте пересэмплируют
-**реализации целиком**, не антенны и не RE. Это неопределённость метрик данного
-pilot-теста, не предел достижимого MSE нейросети. Соотношение источников в смеси
-SNR/IoT влияет на средний MSE; смотрите также разрезы по SNR и IoT.
+None of the filters uses the spatial covariance across RX ports: one map is fitted
+on the rows of all antennas. Antennas of one channel are correlated, so the 95 %
+bootstrap intervals in the report resample **whole realisations**, not antennas or
+REs. The mix of SNR / IoT conditions drives the average MSE; look at the per-SNR and
+per-IoT breakdowns as well.
 
-## Состав Git
+## What is in Git
 
-В коммит входят код генератора/загрузчика/losses/анализа, тесты, этот README,
-отчёт, агрегированные CSV и два графика. `data/`, `runs/`, `artifacts/`, массивы
-каналов, trained filters, индивидуальные метрики и логи исключены локальным
-`.gitignore`. Серверный старый `nr_ul_sim/ce_dataset.py` не является зависимостью
-этого эксперимента.
+Generator, loader, losses, analysis, tests, this README, the report, aggregated
+CSVs and figures. `data/`, `runs/`, `artifacts/`, channel arrays, fitted filters,
+per-record metrics and logs are ignored by the local `.gitignore`.
 
-## Источники API
+## API references
 
-- [Sionna PUSCH LS](https://nvlabs.github.io/sionna/_modules/sionna/phy/nr/pusch_channel_estimation.html): CDM-aware LS и интерполяция.
-- [Sionna 2.1 CDL tutorial](https://nvlabs.github.io/sionna/v2.1.0/phy/tutorials/notebooks/MIMO_OFDM_Transmissions_over_CDL.html): CIR → нормированный OFDM-канал → оценка → эквализация.
-- Реализация проекта: `nr_ul_sim/random_channels.py`, `pusch.py`, `channel_estimation.py`, `losses.py`.
+- [Sionna PUSCH LS](https://nvlabs.github.io/sionna/_modules/sionna/phy/nr/pusch_channel_estimation.html): CDM-aware LS and interpolation.
+- [Sionna 2.1 CDL tutorial](https://nvlabs.github.io/sionna/v2.1.0/phy/tutorials/notebooks/MIMO_OFDM_Transmissions_over_CDL.html): CIR → normalised OFDM channel → estimation → equalisation.
+- Project code: `nr_ul_sim/random_channels.py`, `pusch.py`, `channel_estimation.py`, `losses.py`.
