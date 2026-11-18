@@ -44,24 +44,32 @@ python examples/01_quickstart.py  # first SNR sweep
 
 `setup_env.sh` ends with `scripts/check_install.py`, which prints the library versions,
 the device the simulator will use (GPU or CPU), whether the trained estimator models
-are present, and runs a three-point smoke simulation. On a GPU machine, if it reports
+are present, and runs a three-point smoke simulation (about 10 seconds on a CPU). On a GPU machine, if it reports
 no GPU, install the PyTorch wheel that matches your CUDA driver into `.venv`
 ([selector](https://pytorch.org/get-started/locally/)) and run it again.
 
 The quick-start example sweeps the SNR on a small 8-PRB allocation for the IRC
-receiver with five channel estimators, at IoT 0 and 10 dB. It runs in about a minute
-on a laptop CPU and prints one line per SNR point, then the working points:
+receiver with five channel estimators, at IoT 0 and 10 dB. It takes about 30 seconds
+on a 4-core laptop CPU and prints one line per SNR point, then the working points:
 
 ```text
-=== CDL-C | QAM16 | 1 UE x rank 1 | IoT=0.0 dB | CSI=perfect,ls_nn,ls_lin,... ===
-  SNR   -5.0 dB | perfect BER=1.6e-01 BLER=1.0e+00 | ls_nn BER=... | [0.4 s]
+=== CDL-C | QAM16 | 1 UE x rank 1 | IoT=10.0 dB | CSI=perfect,ls_nn,ls_lin,ls_lin_time_avg,lmmse_ce ===
+  SNR  -20.0 dB | perfect BER=4.813e-01 BLER=1.00e+00 | ls_nn BER=5.022e-01 BLER=1.00e+00 | ... | [1.2 s]
   ...
-  perfect          working point BER=0.01: 3.12 dB      BLER=0.1: 3.40 dB
+Working points (BER = 0.01)
+  IoT = 0.0 dB
+    perfect       5.08 dB
+    ls_nn         5.16 dB
+    ...
+  IoT = 10.0 dB
+    perfect       15.00 dB
+    ...
 ```
 
-A JSON with every curve and BER/BLER figures land in `results/examples/`. Edit the
-knobs at the top of the file (channel, modulation, UEs, receivers, estimators) and run
-it again.
+The SNR grid is a coarse 5 dB here, so the working points are rough; refine
+`SNR_DB` near the crossing for real comparisons. A JSON with every curve and the
+BER/BLER and working-point figures land in `results/examples/`. Edit the knobs at the
+top of the file (channel, modulation, UEs, receivers, estimators) and run it again.
 
 The same kind of run from the command line:
 
