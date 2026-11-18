@@ -347,7 +347,8 @@ def _np(t) -> np.ndarray:
     return t.detach().cpu().numpy()
 
 
-def build_frozen_system_level(cfg, num_ut: int, rng: np.random.Generator):
+def build_frozen_system_level(cfg, num_ut: int, rng: np.random.Generator, *,
+                              speed_kmh_range=None, indoor_speed_kmh_range=None):
     """Draw one drop with ``num_ut`` UEs; returns (channel, per-UE info, arrays)."""
     from sionna.phy.channel import gen_single_sector_topology
 
@@ -361,7 +362,8 @@ def build_frozen_system_level(cfg, num_ut: int, rng: np.random.Generator):
     indoor = _np(in_state)[0].astype(bool)
     speeds, headings, vel = [], [], []
     for u in range(num_ut):
-        rng_range = INDOOR_SPEED_KMH_RANGE if indoor[u] else SPEED_KMH_RANGE
+        rng_range = ((indoor_speed_kmh_range or INDOOR_SPEED_KMH_RANGE) if indoor[u]
+                     else (speed_kmh_range or SPEED_KMH_RANGE))
         speeds.append(float(rng.uniform(*rng_range)))
         headings.append(float(rng.uniform(-180.0, 180.0)))
         vel.append(speed_to_velocity(speeds[-1], headings[-1]))

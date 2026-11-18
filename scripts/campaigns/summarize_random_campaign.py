@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Flatten a random-channel campaign into tables for the working-point model.
 
-    .venv/bin/python scripts/campaigns/summarize_random_campaign.py /root/reports/random_ch_2026-09-30
+    .venv/bin/python scripts/campaigns/summarize_random_campaign.py reports/random_ch_2026-09-30
 
 Writes into the campaign directory:
 

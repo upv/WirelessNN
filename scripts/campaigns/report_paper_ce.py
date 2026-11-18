@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report on the paper channel estimators: training, NMSE, link-level campaign.
 
-    .venv/bin/python scripts/campaigns/report_paper_ce.py /root/reports/paper_ce [models/paper_ce]
+    .venv/bin/python scripts/campaigns/report_paper_ce.py reports/paper_ce [models/paper_ce]
 
 Reads <dir>/nmse/nmse.json, <dir>/campaigns/{ce,incm}/*/*.json and
 <models>/train_meta.json; writes <dir>/REPORT.md (Russian) and figures.

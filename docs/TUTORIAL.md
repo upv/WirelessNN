@@ -194,6 +194,27 @@ The five *trained* estimators load their weights from `models/paper_ce`
 `scripts/training/train_paper_ce.py`; UMi and CDL are outside the training
 distribution. `scripts/training/eval_paper_ce.py` plots NMSE versus SNR for all of them.
 
+An estimator kept outside this repository plugs in through a Python file that
+registers it; `--ce-plugin` (repeatable, `SimConfig.ce_plugins`) imports the file,
+with its directory on `sys.path`, before the estimator names are checked:
+
+```python
+# my_plugin.py
+from nr_ul_sim.channel_estimation import estimator_args
+from nr_ul_sim.parameters import register_estimator
+from my_model import MyEstimator     # e.g. a subclass of paper_ce.BlockEstimator
+
+register_estimator("my_ce", lambda tx, cfg: MyEstimator(*estimator_args(tx)), "my estimator")
+```
+
+```bash
+python -m nr_ul_sim --ce-plugin path/to/my_plugin.py --estimators ls_lin,a_mmse,my_ce
+```
+
+The factory receives the PUSCH transmitter and the `SimConfig` and returns a callable
+`(y, no) -> (h_hat, err_var)` like the built-in estimators. Built-in names cannot be
+replaced.
+
 With several estimators in one run, `perfect` is simply one more entry: the loss of an
 estimator is its working point minus the `perfect` one.
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from .parameters import SimConfig
+from .parameters import PLUGIN_ESTIMATORS, SimConfig
 
 LS_INTERPOLATION = {
     "ls_nn": "nn",
@@ -105,21 +105,28 @@ def robust_lmmse_covariances(cfg: SimConfig, resource_grid):
     return cov_time, cov_freq
 
 
-def build_estimator(name: str, transmitter, cfg: SimConfig):
-    """Return a callable ``(y, no) -> (h_hat, err_var)``, or ``None`` for perfect CSI."""
-    if name == "perfect":
-        return None
-
-    from sionna.phy.nr import PUSCHLMMSEChannelEstimator, PUSCHLSChannelEstimator
-
-    from .windowed_ce import WindowedLSChannelEstimator
-
-    args = (
+def estimator_args(transmitter) -> tuple:
+    """Positional DMRS arguments of the Sionna PUSCH estimators (and of plugins)."""
+    return (
         transmitter.resource_grid,
         transmitter._dmrs_length,
         transmitter._dmrs_additional_position,
         transmitter._num_cdm_groups_without_data,
     )
+
+
+def build_estimator(name: str, transmitter, cfg: SimConfig):
+    """Return a callable ``(y, no) -> (h_hat, err_var)``, or ``None`` for perfect CSI."""
+    if name == "perfect":
+        return None
+    if name in PLUGIN_ESTIMATORS:
+        return PLUGIN_ESTIMATORS[name](transmitter, cfg)
+
+    from sionna.phy.nr import PUSCHLMMSEChannelEstimator, PUSCHLSChannelEstimator
+
+    from .windowed_ce import WindowedLSChannelEstimator
+
+    args = estimator_args(transmitter)
     if name in LS_INTERPOLATION:
         return PUSCHLSChannelEstimator(*args, interpolation_type=LS_INTERPOLATION[name])
     if name in WINDOW_MODE:

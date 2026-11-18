@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Element-by-element physics report of the simulator (figures + JSON).
 
-    .venv/bin/python scripts/physics_checks.py --outdir /root/reports/physics
+    .venv/bin/python scripts/physics_checks.py --outdir reports/physics
 
 Checks every block on its own at 68 PRB: transmitter power and DMRS layout,
 channel power-delay profile / delay spread / time / frequency / spatial

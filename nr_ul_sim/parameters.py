@@ -9,8 +9,11 @@ read them.
 
 from __future__ import annotations
 
+import importlib.util
+import sys
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from pathlib import Path
+from typing import Any, Callable, Iterable
 
 
 RECEIVERS = ("mr", "lmmse", "ideal_mmse", "zf", "irc", "irc_real")
@@ -80,6 +83,9 @@ ESTIMATOR_INFO = {
 }
 # estimators that need trained weights / statistics from ce_model_dir
 LEARNED_ESTIMATORS = ("denoise_nn", "lmmse_data", "lmmse_data_1d", "a_mmse", "ra_a_mmse")
+# estimators registered at run time from outside the package (register_estimator)
+PLUGIN_ESTIMATORS: dict[str, Callable[[Any, "SimConfig"], Any]] = {}
+_LOADED_PLUGINS: dict[Path, Any] = {}
 CHANNEL_ESTIMATOR_ALIASES = {
     "ls": "ls_lin",
     "lin": "ls_lin",
@@ -141,6 +147,55 @@ def canonicalize_receiver_name(name: str) -> str:
 def canonicalize_estimator_name(name: str) -> str:
     n = name.strip().lower().replace("-", "_")
     return CHANNEL_ESTIMATOR_ALIASES.get(n, n)
+
+
+def available_estimators() -> tuple[str, ...]:
+    """Built-in estimators followed by those registered by plugins."""
+    return CHANNEL_ESTIMATORS + tuple(PLUGIN_ESTIMATORS)
+
+
+def register_estimator(
+    name: str,
+    factory: Callable[[Any, "SimConfig"], Any],
+    info: str = "external estimator [plugin]",
+) -> str:
+    """Make ``name`` a channel estimator of this process.
+
+    ``factory(transmitter, cfg)`` returns what the built-in estimators return:
+    a callable ``(y, no) -> (h_hat, err_var)``.
+    :func:`nr_ul_sim.channel_estimation.estimator_args` gives the DMRS
+    arguments of the Sionna PUSCH estimators. Built-in names and aliases
+    cannot be replaced; registering a plugin name again replaces it.
+    """
+    n = canonicalize_estimator_name(name)
+    if not n or n in CHANNEL_ESTIMATORS or n in CHANNEL_ESTIMATOR_ALIASES:
+        raise ValueError(f"Cannot register channel estimator {name!r}: name is built in")
+    PLUGIN_ESTIMATORS[n] = factory
+    ESTIMATOR_INFO[n] = info
+    return n
+
+
+def load_estimator_plugin(path: str | Path) -> None:
+    """Import a Python file that calls :func:`register_estimator`.
+
+    The file's directory is put on ``sys.path`` so that the plugin can import
+    its own modules. Loading the same file twice does nothing.
+    """
+    file = Path(path).expanduser().resolve()
+    if file in _LOADED_PLUGINS:
+        return
+    if not file.is_file():
+        raise ValueError(f"Estimator plugin {str(path)!r} is not a file")
+    spec = importlib.util.spec_from_file_location(
+        f"nr_ul_sim_plugin_{len(_LOADED_PLUGINS)}_{file.stem}", file
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError(f"Cannot import estimator plugin {str(path)!r}")
+    if str(file.parent) not in sys.path:
+        sys.path.insert(0, str(file.parent))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _LOADED_PLUGINS[file] = module
 
 
 def receiver_uses_perfect_csi(name: str, perfect_csi: bool = False) -> bool:
@@ -237,6 +292,8 @@ class SimConfig:
     ce_lmmse_prior_ds_ns: float | None = None
     # trained models of the paper estimators (None -> <repo>/models/paper_ce)
     ce_model_dir: str | None = None
+    # Python files that register extra estimators (load_estimator_plugin)
+    ce_plugins: tuple[str, ...] = ()
     # INCM estimation band of --iot-cov incm_oas [subcarriers] (EqDeepRx: 2 PRB)
     incm_band_sc: int = 24
     # --- carrier and resource grid ---------------------------------------------
@@ -275,6 +332,9 @@ class SimConfig:
         ) or ("ls_lin",)
         self.snr_db = as_float_list(self.snr_db)
         self.iot_db = as_float_list(self.iot_db)
+        self.ce_plugins = tuple(str(p) for p in self.ce_plugins)
+        for plugin in self.ce_plugins:
+            load_estimator_plugin(plugin)
 
         if self.channel not in CHANNELS:
             raise ValueError(f"channel must be one of {CHANNELS}, got {self.channel}")
@@ -301,10 +361,11 @@ class SimConfig:
         unknown = [r for r in self.receivers if r not in RECEIVERS]
         if unknown:
             raise ValueError(f"Unknown receivers {unknown}; choose from {RECEIVERS}")
-        unknown_ce = [e for e in self.channel_estimators if e not in CHANNEL_ESTIMATORS]
+        known_ce = available_estimators()
+        unknown_ce = [e for e in self.channel_estimators if e not in known_ce]
         if unknown_ce:
             raise ValueError(
-                f"Unknown channel estimators {unknown_ce}; choose from {CHANNEL_ESTIMATORS}"
+                f"Unknown channel estimators {unknown_ce}; choose from {known_ce}"
             )
         if self.num_prb * 12 > self.fft_size:
             raise ValueError(
@@ -412,6 +473,7 @@ class SimConfig:
             "ce_time_interp": self.ce_time_interp,
             "ce_lmmse_prior_ds_ns": self.ce_lmmse_prior_ds_ns,
             "ce_model_dir": self.ce_model_dir,
+            "ce_plugins": list(self.ce_plugins),
             "incm_band_sc": self.incm_band_sc,
             "carrier_frequency_hz": self.carrier_frequency,
             "subcarrier_spacing_khz": self.subcarrier_spacing_khz,

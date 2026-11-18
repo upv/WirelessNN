@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Collect the campaign JSONs written by run_campaigns.sh / run_paper_ce_campaign.sh into tables and figures.
 
-    .venv/bin/python scripts/campaigns/summarize_campaigns.py /root/reports/x/campaigns
+    .venv/bin/python scripts/campaigns/summarize_campaigns.py reports/x/campaigns
 """
 
 from __future__ import annotations
