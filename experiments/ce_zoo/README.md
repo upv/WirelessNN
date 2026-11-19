@@ -48,6 +48,65 @@ Huber loss, AdamW 1e-3 with one-cycle schedule, batch 64 slices, 60 epochs. All 
 take about 70 min in total on an RTX PRO 4000 (swift 7, denoiserx 11, helena 14,
 chea 15, chea_xl 23 min).
 
+## Other slot layouts and timing offsets
+
+The models take any number of DMRS symbols and any slot length (`nd`, `dmrs`, `n_sym`;
+`train.py` reads them from the data, `--dmrs` gives the DMRS symbol indices). `train.py`
+accepts several data folders (concatenated) and `--tau-max-ns T`, which multiplies input
+and target by the phase ramp of a random delay in [-T, T] per sample. That teaches the
+models a receiver FFT-window (timing) offset; with it, the best checkpoint is chosen on
+validation data with random offsets.
+
+Example: a 2-RX stand layout (24 PRB, PUSCH mapping type B, 13 symbols, DMRS at 0/5/10),
+rank-2 plus 1-layer data:
+
+```bash
+export PYTHONPATH=.:experiments/channelformer:experiments/ce_zoo
+L="--rx-ant 2 --prb 24 --fft-size 512 --carrier-freq 3.6e9 --mapping-type B --num-symbols 13 --dmrs-addpos 2"
+python experiments/channelformer/gen_data.py --out data/stand_r2 $L --ue-ant 2 --rank 2 --slots 24000 --val-slots 2400 --chunk-slots 32 --batch 4
+python experiments/channelformer/gen_data.py --out data/stand_r1 $L --ue-ant 1 --rank 1 --slots 24000 --val-slots 2400 --chunk-slots 32 --batch 4
+for m in denoiserx swift chea helena chea_xl; do
+  python experiments/ce_zoo/train.py --model $m --data data/stand_r2 data/stand_r1 --out runs/stand/$m \
+      --dmrs 0,5,10 --tau-max-ns 400 --min-prb 2 --epochs 40
+done
+```
+
+Validation NMSE on that data (random offsets of up to ±400 ns; LS interpolation -6.28 dB):
+
+| model | params | val NMSE [dB] |
+|---|---|---|
+| chea_xl | 297 784 | -17.70 |
+| denoiserx | 43 074 | -17.56 |
+| helena | 125 280 | -16.54 |
+| swift | 9 404 | -15.62 |
+| chea | 31 672 | -15.55 |
+
+### Over-the-air replay
+
+These stand-layout checkpoints were replayed on uplink captures from a 2x2 OAI-based
+5G stand (two commercial UEs, about 1 300 to 1 500 decoded slots per capture, 1 gNB
+receive antenna, 1 layer, 5 to 24 PRB, fit SNR 16 to 20 dB). There is no true channel
+on air, so each slot is scored by the fit SNR |cHX|^2 / |Y - cHX|^2 on its data REs, with X
+rebuilt by re-encoding the decoded transport block and one complex gain c per slot.
+Median per-slot gain over the gNB's own estimate, range over the four capture/UE sets:
+
+| estimator | gain vs gNB estimate [dB] |
+|---|---|
+| zoo_chea_xl | +0.35 to +0.36 |
+| zoo_denoiserx | +0.33 to +0.35 |
+| Channelformer (same layout, delay removed before the network) | +0.28 to +0.33 |
+| zoo_helena | +0.22 to +0.28 |
+| LMMSE, exponential delay profile | +0.16 to +0.21 |
+| zoo_swift | +0.13 to +0.21 |
+| zoo_chea | +0.06 to +0.19 |
+| linear interpolation | -0.41 to -0.46 |
+
+The stand's receiver places its FFT window early, so the channel carries a delay of
+about -110 ns. The offset-trained chea_xl, denoiserx and helena handle it themselves:
+removing the mean delay before the network changes their result by at most 0.03 dB.
+At this SNR and with one receive antenna noise dominates, so the differences are small.
+The capture and replay tools are not part of this repository.
+
 ## Use the estimators
 
 ```bash
