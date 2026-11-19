@@ -159,13 +159,19 @@ def main():
 
     n_sym = tr_tgt.shape[1]
     assert len(dmrs) == tr_blk.shape[1], f"--dmrs has {len(dmrs)} symbols, data has Nd={tr_blk.shape[1]}"
-    net = build(args.model, nd=tr_blk.shape[1], dmrs=dmrs, n_sym=n_sym).to(dev)
+    kw = dict(nd=tr_blk.shape[1], dmrs=dmrs, n_sym=n_sym)
+    if args.model.endswith("_window"):
+        kw["scs_khz"] = args.scs_khz
+    net = build(args.model, **kw).to(dev)
     n_par = sum(q.numel() for q in net.parameters())
     print(f"{args.model}: {type(net).__name__} {n_par} params", flush=True)
-    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
-    steps_ep = math.ceil(len(tr_blk) / args.batch)
-    sched = torch.optim.lr_scheduler.OneCycleLR(opt, args.lr, total_steps=args.epochs * steps_ep,
-                                                pct_start=0.05)
+    if n_par == 0:            # classical estimator (hard_window, soft_window): evaluate only
+        args.epochs = 1
+    else:
+        opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
+        steps_ep = math.ceil(len(tr_blk) / args.batch)
+        sched = torch.optim.lr_scheduler.OneCycleLR(opt, args.lr, total_steps=args.epochs * steps_ep,
+                                                    pct_start=0.05)
     loss_fn = torch.nn.HuberLoss(delta=1.0) if args.loss == "huber" else torch.nn.MSELoss()
     va_tau = None
     if args.tau_max_ns > 0:   # fixed random offsets for a second validation metric
@@ -174,7 +180,7 @@ def main():
     for ep in range(args.epochs):
         perm = torch.as_tensor(rng.permutation(len(tr_blk)))
         tot = 0.0
-        for i in range(0, len(perm), args.batch):
+        for i in range(0, len(perm) if n_par else 0, args.batch):
             n_prb = p_all if rng.random() < args.p_full else int(rng.integers(args.min_prb, p_all + 1))
             x, y = make_batch(tr_blk, tr_tgt, perm[i:i + args.batch], n_prb, dev, rng,
                               args.tau_max_ns * 1e-9, args.scs_khz * 1e3)

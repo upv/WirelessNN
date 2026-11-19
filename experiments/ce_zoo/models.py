@@ -13,6 +13,9 @@ Models (deviations from the papers are listed in each docstring)
   helena    HELENA           Camelo Botero et al., arXiv 2506.13408
   swift     SwiftChannel     Lyu et al., arXiv 2605.01931 (student network, no KD/QAT)
   denoiserx EqDeepRx DenoiseNN + fixed linear interpolation, Honkala et al., arXiv 2602.11834
+
+Classical baselines in the same interface (no weights)
+  hard_window, soft_window   delay-domain windowed LS as nr_ul_sim ls_hard_window / ls_soft_window
 """
 
 from __future__ import annotations
@@ -326,6 +329,93 @@ class DenoiseRx(nn.Module):
         return self.ls(den)
 
 
+class DelayWindow(nn.Module):
+    """Delay-domain windowed LS, the ``ls_hard_window`` / ``ls_soft_window`` estimators of
+    ``nr_ul_sim/windowed_ce.py`` on one (rx antenna, layer) slice; no trainable weights.
+
+    Per DMRS symbol the M block values go to the delay domain (M-point IDFT), are
+    weighted per tap, and come back on all 4M subcarriers (zero-padded 4M-point DFT,
+    block value on subcarrier 4m + ``centre``), then linear in time through the DMRS
+    symbols, held constant outside them. Tap spacing 1 / (4M * scs); the window keeps
+    taps in [-neg_us, +pos_us].
+
+    hard   gain 1 inside the window, 0 outside.
+    soft   per-tap Wiener gain max(P_k - a s2, 0) / P_k, P_k the tap power averaged over
+           the DMRS symbols, s2 the median tap power outside the window (Wilson-Hilferty
+           corrected), a = ``threshold``.
+
+    Difference from nr_ul_sim: there the tap power is also averaged over the receive
+    antennas and s2 is bounded below by the LS error variance / M. Here each slice is
+    estimated alone (the zoo interface) from normalised input, so only the
+    outside-window median sets s2.
+    """
+
+    def __init__(self, mode="soft", pos_us=3.0, neg_us=1.0, threshold=1.5, within_window=False,
+                 scs_khz=30.0, centre=1, nd=2, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
+        super().__init__()
+        if mode not in ("hard", "soft"):
+            raise ValueError("mode must be 'hard' or 'soft'")
+        self.config = dict(mode=mode, pos_us=pos_us, neg_us=neg_us, threshold=threshold,
+                           within_window=within_window, scs_khz=scs_khz, centre=centre,
+                           nd=nd, dmrs=tuple(dmrs), n_sym=n_sym)
+        self.mode, self.threshold, self.within = mode, float(threshold), bool(within_window)
+        self.pos_s, self.neg_s, self.scs = pos_us * 1e-6, neg_us * 1e-6, scs_khz * 1e3
+        self.centre = int(centre)
+        d = list(dmrs)
+        w = torch.zeros(n_sym, len(d))
+        for t in range(n_sym):
+            if len(d) == 1 or t <= d[0]:
+                w[t, 0] = 1.0
+            elif t >= d[-1]:
+                w[t, -1] = 1.0
+            else:
+                j = bisect.bisect_right(d, t) - 1
+                a = (t - d[j]) / (d[j + 1] - d[j])
+                w[t, j], w[t, j + 1] = 1 - a, a
+        self.register_buffer("w", w, persistent=False)
+
+    def window(self, m, device):
+        n = BLOCK_SC * m
+        tap = 1.0 / (n * self.scs)
+        half = (m + 1) // 2
+        pos = max(0, min(int(math.floor(self.pos_s / tap + 1e-9)), half - 1))
+        neg = max(0, min(int(math.floor(self.neg_s / tap + 1e-9)), m - half))
+        win = torch.zeros(m, device=device)
+        win[:pos + 1] = 1.0
+        if neg:
+            win[m - neg:] = 1.0
+        return win
+
+    def forward(self, x):
+        b, _, nd, m = x.shape
+        n = BLOCK_SC * m
+        h = torch.complex(x[:, 0].float(), x[:, 1].float())                 # [B, Nd, M]
+        taps = torch.fft.ifft(h, dim=-1)
+        win = self.window(m, x.device)
+        if self.mode == "hard":
+            gain = win.expand(b, 1, m)
+        else:
+            power = taps.abs().square().mean(1, keepdim=True)              # [B, 1, M]
+            out = win == 0
+            if int(out.sum()) >= 8:
+                corr = (1.0 - 1.0 / (9.0 * nd)) ** 3
+                s2 = power[..., out].quantile(0.5, dim=-1, keepdim=True) / corr
+            else:
+                s2 = torch.zeros_like(power[..., :1])
+            gain = ((power - self.threshold * s2) / power.clamp(min=1e-30)).clamp(0.0, 1.0)
+            if self.within:
+                gain = gain * win
+        taps = taps * gain
+        k = torch.arange(m, device=x.device)
+        half = (m + 1) // 2
+        idx = torch.where(k < half, k, n - (m - k))
+        padded = taps.new_zeros(b, nd, n)
+        padded[..., idx] = taps
+        g = torch.roll(torch.fft.fft(padded, dim=-1), shifts=self.centre, dims=-1)   # [B, Nd, N]
+        y = torch.einsum("tn,bnf->btf", self.w.to(g.real.dtype).to(torch.complex64), g)
+        return torch.stack([y.real, y.imag], 1)
+
+
 # ----------------------------------------------------------------------------- registry
 MODELS = {
     "chea": lambda **kw: CHEA(d=16, **kw),
@@ -333,8 +423,11 @@ MODELS = {
     "helena": HELENA,
     "swift": SwiftChannel,
     "denoiserx": DenoiseRx,
+    "hard_window": lambda **kw: DelayWindow(mode="hard", **kw),
+    "soft_window": lambda **kw: DelayWindow(mode="soft", **kw),
 }
-CLASSES = {"CHEA": CHEA, "HELENA": HELENA, "SwiftChannel": SwiftChannel, "DenoiseRx": DenoiseRx}
+CLASSES = {"CHEA": CHEA, "HELENA": HELENA, "SwiftChannel": SwiftChannel, "DenoiseRx": DenoiseRx,
+           "DelayWindow": DelayWindow}
 
 
 def build(name: str, **kw) -> nn.Module:
