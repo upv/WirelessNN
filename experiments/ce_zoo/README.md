@@ -11,6 +11,7 @@ antennas x 2 UE ports, rank 2, 68 PRB, DMRS type 1 with one additional position)
 | `zoo_helena` | HELENA: Camelo Botero et al., [arXiv:2506.13408](https://arxiv.org/abs/2506.13408) | 133k |
 | `zoo_swift` | SwiftChannel student network: Lyu et al., [arXiv:2605.01931](https://arxiv.org/abs/2605.01931) | 9.6k |
 | `zoo_denoiserx` | EqDeepRx DenoiseNN + linear interpolation: Honkala et al., [arXiv:2602.11834](https://arxiv.org/abs/2602.11834) | 41.8k |
+| `zoo_hard_window`, `zoo_soft_window` | baselines: the simulator's `ls_hard_window` / `ls_soft_window` on one slice | 0 |
 
 These are re-implementations from the papers, not the authors' code. Every model works on
 one (rx antenna, layer) slice: the OCC-despread DMRS LS values (one per 4 subcarriers,
@@ -25,6 +26,11 @@ each paper are listed in the model docstrings in `models.py`; the main ones:
   is 1D over frequency. Only the network, without distillation, re-parameterisation or QAT.
 - DenoiseRx: depthwise-separable 13-tap convolutions (filter type not given in the paper);
   only the channel-estimation part of EqDeepRx, followed by fixed linear interpolation.
+- Delay windows (`DelayWindow`): the same computation as `nr_ul_sim/windowed_ce.py`
+  (window -1..+3 us, soft threshold 1.5), bit-identical with one receive antenna
+  (`tests/test_ce_zoo_windows.py`). With several antennas the simulator's soft window
+  averages tap power over them; here each slice is estimated alone. `train.py` evaluates
+  them once and writes a checkpoint with the error-variance table, no training.
 
 ## Files
 
@@ -80,6 +86,8 @@ Validation NMSE on that data (random offsets of up to ±400 ns; LS interpolation
 | helena | 125 280 | -16.54 |
 | swift | 9 404 | -15.62 |
 | chea | 31 672 | -15.55 |
+| soft_window | 0 | -12.79 |
+| hard_window | 0 | -8.13 |
 
 ### Over-the-air replay
 
@@ -99,12 +107,25 @@ Median per-slot gain over the gNB's own estimate, range over the four capture/UE
 | LMMSE, exponential delay profile | +0.16 to +0.21 |
 | zoo_swift | +0.13 to +0.21 |
 | zoo_chea | +0.06 to +0.19 |
+| soft window, delay removed before the window | -0.12 to +0.23 |
+| hard window, delay removed before the window | -0.32 to -0.12 |
 | linear interpolation | -0.41 to -0.46 |
+| hard window | -1.92 to -1.48 |
+| soft window | -2.16 to -1.55 |
 
 The stand's receiver places its FFT window early, so the channel carries a delay of
 about -110 ns. The offset-trained chea_xl, denoiserx and helena handle it themselves:
 removing the mean delay before the network changes their result by at most 0.03 dB.
 At this SNR and with one receive antenna noise dominates, so the differences are small.
+The delay windows suffer from that delay: over 24 PRB a -100 ns delay is a phase ramp
+of about 0.9 cycle, so the DFT sees a jump at the band edges and the window cuts it
+off (error -15 dB in the outer eighths of the band against -26 to -29 dB inside).
+Removing the mean delay first fixes most of it, but the soft window still trails LMMSE
+and every trained model.
+
+With two gNB receive antennas (later captures, maximum-ratio combining) the trained
+models gain +0.82 to +0.97 dB over the gNB estimate, Channelformer +0.82 to +0.93,
+LMMSE +0.58 to +0.78 and the soft window with the delay removed +0.35 to +0.76.
 The capture and replay tools are not part of this repository.
 
 ## Use the estimators
@@ -129,8 +150,11 @@ UMi, UMa, 3 to 120 km/h, SNR uniform in -10..30 dB, no interference):
 | zoo_chea | 32 816 | -15.24 | -8.5 | -21.3 | -24.4 |
 | zoo_helena | 132 984 | -15.16 | -8.3 | -21.5 | -24.6 |
 | zoo_swift | 9 628 | -14.56 | -7.7 | -20.9 | -24.3 |
+| zoo_soft_window | 0 | -12.25 | | | |
+| zoo_hard_window | 0 | -6.39 | | | |
 | LS interpolation | 0 | -4.52 | | | |
 
-DenoiseRx was the best model in every channel type (CDL-B/C/D, UMi, UMa). All runs had
+The windows level off near -21 dB above about 15 dB SNR (band-edge leakage), below plain
+LS at 30 dB. DenoiseRx was the best model in every channel type (CDL-B/C/D, UMi, UMa). All runs had
 stopped improving well before epoch 60. These are channel-estimation errors only; BLER
 with these estimators has not been simulated yet.
