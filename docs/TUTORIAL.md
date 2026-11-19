@@ -145,29 +145,16 @@ python examples/03_receivers_vs_interference.py
 
 compares the five classic receivers at IoT 0 and 10 dB with two co-scheduled UEs.
 
-| Receiver | Combiner | Notes |
-| --- | --- | --- |
-| `mr` | matched filter | ignores every kind of interference |
-| `zf` | zero forcing | removes the co-scheduled layers, amplifies noise |
-| `lmmse` | MMSE with `S = N0·I` | other-cell interference is treated as white noise |
-| `ideal_mmse` | same, with the true channel | genie bound for `lmmse` |
-| `irc` | MMSE with `S = R_iot + N0·I` | the only one that rejects *coloured* interference; `R_iot` from `iot_cov` |
-| `irc_real` | the same combiner | `R_iot` always measured on the received DMRS (soft-window CSI of its own, per-band OAS shrinkage); never sees the true channels, even with `--perfect-csi` |
+Expected outcome: without interference IRC and L-MMSE give the same curve, and MR is
+far behind because it does not separate the two UEs. At IoT 10 dB, ZF and L-MMSE lose
+the 10 dB and more, IRC clearly less: one interferer occupies one spatial direction
+and the gNB has antennas to spare.
 
-Without other-cell interference IRC and L-MMSE are the same receiver. With it, IRC
-gains as long as the interference occupies fewer spatial directions than there are
-spare antennas. How IRC gets `R_iot` is chosen with `iot_cov`:
-
-| `iot_cov` | Source | Realistic? |
-| --- | --- | --- |
-| `perfect` | true interferer channels | genie |
-| `residual` | covariance of `y − Ĥp` on the DMRS symbols, minus `N0·I` | yes |
-| `incm_oas` | the same residual per 2 PRB, shrunk towards a scaled identity (EqDeepRx) | yes, frequency selective |
-| `estimated` | covariance of the whole received grid minus `N0·I` | contains the serving signal; kept for comparison |
-
-`irc_real` ignores `iot_cov`: it is the `incm_oas` path with its own channel estimate,
-so `--receivers lmmse,irc,irc_real` compares the genie, the chosen method and the
-fully measured receiver on the same slots.
+The six receivers (`mr`, `zf`, `lmmse`, `ideal_mmse`, `irc`, `irc_real`) and the four
+ways IRC can obtain the interference covariance (`--iot-cov perfect | residual |
+incm_oas | estimated`) are described in [MODEL.md](MODEL.md#receivers).
+`--receivers lmmse,irc,irc_real` compares the white-noise receiver, IRC with the
+chosen covariance and the fully measured receiver on the same slots.
 
 ## 6. Channel estimators
 
@@ -177,17 +164,12 @@ python examples/04_channel_estimators.py
 
 measures the channel-estimation NMSE and the working-point loss against perfect CSI.
 
-| Name | Method |
-| --- | --- |
-| `perfect` | true channel (genie) |
-| `ls_nn`, `ls_lin`, `ls_lin_time_avg` | DMRS least squares, nearest / linear / linear + time-average interpolation |
-| `lmmse_ce` | LMMSE with a TDL prior matched to the scenario — a genie prior on CDL |
-| `lmmse_exp` | LMMSE with an exponential-PDP prior — what a real receiver can assume |
-| `ls_hard_window`, `ls_soft_window` | LS denoised in the delay domain: rectangular window, or per-tap Wiener weights. The soft window takes its disturbance floor from the taps outside the window (`--ce-soft-noise-mode outside`, default: follows interference) or from the thermal noise only (`thermal`, the pre-2026-10-06 behaviour) |
-| `ls_fir` | LS + a static 17-tap frequency FIR (EqDeepRx baseline) |
-| `denoise_nn` | EqDeepRx DenoiseNN — trained |
-| `lmmse_data`, `lmmse_data_1d` | LMMSE with a covariance measured on training channels — trained |
-| `a_mmse`, `ra_a_mmse` | attention-learned fixed linear filters (A-MMSE) and the rank-6 variant — trained |
+The 14 built-in estimators range from plain DMRS least squares (`ls_nn`, `ls_lin`,
+`ls_lin_time_avg`) through LMMSE with a genie or a robust prior (`lmmse_ce`,
+`lmmse_exp`) and delay-domain denoising (`ls_hard_window`, `ls_soft_window`) to
+estimators from recent papers (`ls_fir`, `denoise_nn`, `lmmse_data`, `lmmse_data_1d`,
+`a_mmse`, `ra_a_mmse`). [MODEL.md](MODEL.md#channel-estimators) describes each one;
+`python -m nr_ul_sim --list` prints a one-line summary.
 
 The five *trained* estimators load their weights from `models/paper_ce`
 (`--ce-model-dir` to point elsewhere). They were trained on UMa by
@@ -214,6 +196,8 @@ python -m nr_ul_sim --ce-plugin path/to/my_plugin.py --estimators ls_lin,a_mmse,
 The factory receives the PUSCH transmitter and the `SimConfig` and returns a callable
 `(y, no) -> (h_hat, err_var)` like the built-in estimators. Built-in names cannot be
 replaced.
+`experiments/channelformer/plugin.py` is a complete, trained example
+([README](../experiments/channelformer/README.md)).
 
 With several estimators in one run, `perfect` is simply one more entry: the loss of an
 estimator is its working point minus the `perfect` one.
@@ -253,21 +237,11 @@ python -m nr_ul_sim.dataset --num-samples 500 --outdir dataset/run1
 ```
 
 builds a supervised dataset *channel tensor → working point*. Every scenario draws
-random link parameters, **freezes one channel realisation** and searches the working
-point by bracketing and bisection (about 15 SNR points instead of a full sweep), for
-every receiver, estimator and modulation. Output in `--outdir`:
-
-| File | Content |
-| --- | --- |
-| `meta.jsonl`, `dataset.csv` | one row per (scenario, modulation): parameters, labels, BER curve, features |
-| `channels/<id>/H.npy`, `H_int.npy`, `R_iot.npy` | stored tensors of the scenario |
-| `dataset.npz` | everything stacked and padded; read it with `nr_ul_sim.dataset.load_dataset` |
-
-Runs are resumable (`--resume`) and shardable (`--start-index`):
-`scripts/dataset/run_irc_ce.sh` launches 20 shards and
-`scripts/dataset/merge_shards.py` merges them. Analysis:
-`scripts/dataset/analyze_dataset.py` (coverage, physical sanity gaps, ridge baseline)
-and `scripts/dataset/analyze_ce.py` (channel-estimation loss study).
+random link parameters, **freezes one channel realisation** and finds the working point
+by bracketing and bisection (about 15 SNR points instead of a full sweep), for every
+receiver, estimator and modulation. Runs are resumable (`--resume`) and shardable
+(`--start-index`). The file layout, the search and the analysis scripts are described
+in [DATASET.md](DATASET.md).
 
 ## 9. Random-channel campaign
 
@@ -310,7 +284,7 @@ Sizing rules of thumb:
 ## 11. Verifying the simulator
 
 ```bash
-python -m pytest tests                                    # about a minute on a CPU
+python -m pytest tests                                    # a few minutes on a CPU
 python scripts/physics_checks.py --outdir physics_out     # figures + JSON report
 ```
 
@@ -328,7 +302,9 @@ not individual error counts, across machines.
 
 ## 12. Extending the simulator
 
-**A channel estimator** is a callable `(y, no) -> (h_hat, err_var)`:
+**A channel estimator** is a callable `(y, no) -> (h_hat, err_var)`. To try one
+without touching the package, register it from a plugin file (section 6). To make it
+a built-in:
 
 1. implement it (subclass Sionna's `PUSCHLSChannelEstimator` like
    `nr_ul_sim/windowed_ce.py` does, to reuse the DMRS despreading);
@@ -361,5 +337,5 @@ information gets a branch in `NRUplinkSimulator.detect`, as `irc` and `irc_real`
 | simulation runs on the CPU on a GPU machine | `scripts/check_install.py` shows what PyTorch sees; usually a CPU-only PyTorch wheel |
 | `-20:30:2` read as an option | write `--snr-db=-20:30:2` in scripts (the CLI itself accepts both forms) |
 
-Known limitations of the models are listed under *Known issues* in
-[CHANGELOG.md](../CHANGELOG.md).
+Known limitations of the models are listed in
+[MODEL.md](MODEL.md#known-limitations).

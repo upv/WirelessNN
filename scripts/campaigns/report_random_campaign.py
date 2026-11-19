@@ -4,7 +4,7 @@
     .venv/bin/python scripts/campaigns/report_random_campaign.py ~/reports/random_ch_2026-09-30 [interp_check.json]
     .venv/bin/python scripts/campaigns/report_random_campaign.py ~/reports/random_ch_ammse_2026-10-05 --compare ~/reports/random_ch_2026-09-30
 
-Writes <campaign>/report/REPORT.md (Russian) and figures next to it: setup,
+Writes <campaign>/report/REPORT.md and figures next to it: setup,
 verification (labels recomputed from the stored BER curves, optional dense
 re-simulation check, working point vs theoretical post-IRC SINR), censoring,
 channel-estimation loss by model / modulation / layers / IoT / speed / delay
@@ -99,22 +99,22 @@ add = L.append
 
 # --------------------------------------------------------------------------- header
 tt = np.array([r["timing_s"]["total"] for r in recs])
-add("# Кампания случайных каналов: рабочая точка IRC при BER = 1e-2\n")
-add(f"Каталог: `{O}`. Конфигураций: **{N} из {plan_n}**, ошибок выполнения: {len(errors)}. "
-    f"Запуск: {cfg['created']}, {cfg['args']['workers']} воркера на одном GPU ({GPU}). "
-    f"Время на конфигурацию: медиана {np.median(tt):.1f} с, p95 {np.percentile(tt, 95):.0f} с, "
-    f"суммарно {tt.sum() / 3600:.1f} GPU-воркер-часов.\n")
+add("# Random-channel campaign: IRC working point at BER = 1e-2\n")
+add(f"Directory: `{O}`. Configurations: **{N} of {plan_n}**, runtime errors: {len(errors)}. "
+    f"Started {cfg['created']}, {cfg['args']['workers']} workers on one GPU ({GPU}). "
+    f"Time per configuration: median {np.median(tt):.1f} s, p95 {np.percentile(tt, 95):.0f} s, "
+    f"{tt.sum() / 3600:.1f} GPU worker-hours in total.\n")
 
 a = cfg["args"]
-add("## 1. Постановка\n")
-add(f"""- Модели канала: {', '.join(m.upper() for m in cfg['channels'])}; по {a['per_model']} конфигураций на модель, в каждой модели поровну ячеек (#UE ∈ {{1, 2}}) × (ранг ∈ {{1, 2}}) × (QPSK MCS 5, 16QAM MCS 14, 64QAM MCS 20).
-- Полоса {a['num_prb']} PRB, FFT {a['fft_size']}, 30 кГц, 4 приёмные антенны (панель 1×2 кросс-пол., диаграмма 38.901), DMRS type-1, add-pos 1.
-- Приёмник IRC с идеальной ковариацией помех; {len(EST)} оценок канала на одних и тех же слотах: {', '.join(LABEL[e] for e in EST)}.
-- Из сида каждой конфигурации: IoT (0 дБ с вероятностью 0.2, иначе равномерно 0.5–20 дБ), 1–2 интерферента, крупномасштабный канал каждого UE и интерферента.
-  - CDL-B/C/D: разброс задержек log-uniform 20–1000 нс, скорость 0.5–120 км/ч и направление, масштабирование и сдвиг углов кластеров по 38.901 7.7.5.1 (AS ×0.5…2, азимут UE в секторе ±60°, зенит 92–110°), джиттер кластеров (5°/2°, задержки ×e^N(0,0.1)), K-фактор 0–15 дБ для CDL-D.
-  - UMi/UMa: один дроп 38.901 на конфигурацию (положения, indoor 30 %, LoS, LSP, кластеры и лучи заморожены), скорость 0.5–120 км/ч outdoor / 0.5–5 км/ч indoor.
-  - Внутри конфигурации меняется только мелкомасштабное замирание (фазы лучей) — рабочая точка является функцией нарисованных параметров.
-- Поиск рабочей точки: адаптивный, общий для всех оценивателей, шаг 4 дБ, уточнение до 2 дБ, сетка 0.5 дБ, ≤ {a['max_points']} точек SNR; Монте-Карло до {a['max_mc_iter']}×{a['batch_size']} слотов, остановка при {a['target_bit_errors']} битовых и {a['target_block_errors']} блочных ошибках. Результат по каждой оценке — интервальная метка: `ok` (WP в скобке), `right_censored` (WP выше последней точки: `floor`, `hi_limit`, `excess_loss` > 15 дБ хуже идеальной CSI, `budget`), `left_censored`.
+add("## 1. Setup\n")
+add(f"""- Channel models: {', '.join(m.upper() for m in cfg['channels'])}; {a['per_model']} configurations per model, split equally over the cells (#UE ∈ {{1, 2}}) × (rank ∈ {{1, 2}}) × (QPSK MCS 5, 16QAM MCS 14, 64QAM MCS 20).
+- {a['num_prb']} PRB, FFT {a['fft_size']}, 30 kHz, 4 receive antennas (1×2 cross-polarised panel, 38.901 pattern), DMRS type 1, additional position 1.
+- IRC receiver with perfect interference covariance; {len(EST)} channel estimators on the same slots: {', '.join(LABEL[e] for e in EST)}.
+- Drawn from each configuration's seed: IoT (none with probability 0.2, otherwise uniform 0.5–20 dB), 1–2 interferers, the large-scale channel of every UE and interferer.
+  - CDL-B/C/D: delay spread log-uniform 20–1000 ns, speed 0.5–120 km/h and direction, cluster angle scaling and translation per 38.901 7.7.5.1 (AS ×0.5…2, UE azimuth within ±60° of the sector, zenith 92–110°), cluster jitter (5°/2°, delays ×e^N(0,0.1)), K-factor 0–15 dB for CDL-D.
+  - UMi/UMa: one 38.901 drop per configuration (positions, 30 % indoor, LoS, LSP, clusters and rays frozen), speed 0.5–120 km/h outdoor / 0.5–5 km/h indoor.
+  - Within a configuration only the small-scale fading (ray phases) changes, so the working point is a function of the drawn parameters.
+- Working-point search: adaptive, shared by all estimators, 4 dB steps refined to 2 dB, 0.5 dB grid, ≤ {a['max_points']} SNR points; Monte Carlo up to {a['max_mc_iter']}×{a['batch_size']} slots, stopping at {a['target_bit_errors']} bit and {a['target_block_errors']} block errors. Each estimator gets an interval label: `ok` (WP inside the bracket), `right_censored` (WP above the last point: `floor`, `hi_limit`, `excess_loss` > 15 dB worse than perfect CSI, `budget`), `left_censored`.
 """)
 
 # --------------------------------------------------------------------------- verification
@@ -139,24 +139,24 @@ for r in recs:
 ids = [r["id"] for r in recs]
 arrays = {int(p.stem) for p in (O / "arrays").glob("*.npz")}
 
-add("## 2. Проверка вычислений\n")
-add(f"""| проверка | результат |
+add("## 2. Verification\n")
+add(f"""| check | result |
 |---|---|
-| записей / дубликатов id / битых строк | {N} / {len(ids) - len(set(ids))} / 0 |
-| у каждой записи есть `arrays/ID.npz` | {'да' if set(ids) <= arrays else 'НЕТ'} ({len(arrays)} файлов) |
-| рабочие точки, пересчитанные из сохранённых кривых BER | {n_ok} меток `ok`, расхождений **{mism}** |
-| ширина скобки | 2 дБ в {np.mean(np.array(widths) == 2.0):.0%} случаев, 1.5 дБ в {np.mean(np.array(widths) == 1.5):.0%} |
-| верхняя точка скобки без ошибок (BER = 0) | {zero_b / max(n_ok, 1):.0%} |
+| records / duplicate ids / broken lines | {N} / {len(ids) - len(set(ids))} / 0 |
+| every record has `arrays/ID.npz` | {'yes' if set(ids) <= arrays else 'NO'} ({len(arrays)} files) |
+| working points recomputed from the stored BER curves | {n_ok} `ok` labels, **{mism}** mismatches |
+| bracket width | 2 dB in {np.mean(np.array(widths) == 2.0):.0%} of cases, 1.5 dB in {np.mean(np.array(widths) == 1.5):.0%} |
+| upper bracket point without errors (BER = 0) | {zero_b / max(n_ok, 1):.0%} |
 """)
 if interp:
     d = np.array([x["campaign"] - x["dense"] for x in interp["rows"]])
-    add(f"Точность метки: {len(interp['configs'])} случайных конфигураций пересчитаны с уточнением до 0.5 дБ (сетка кампании) для perfect и LS-linear, {len(d)} пар: "
-        f"смещение {d.mean():+.2f} дБ, СКО {d.std():.2f} дБ, максимум {np.abs(d).max():.2f} дБ (включает шум Монте-Карло повторного прогона). "
-        "Нулевая верхняя точка дополнительного смещения не даёт.\n")
+    add(f"Label accuracy: {len(interp['configs'])} random configurations re-run with refinement to 0.5 dB (the campaign grid) for perfect and LS-linear, {len(d)} pairs: "
+        f"bias {d.mean():+.2f} dB, std {d.std():.2f} dB, max {np.abs(d).max():.2f} dB (includes the Monte-Carlo noise of the re-run). "
+        "A zero-error upper point adds no extra bias.\n")
 
 # physics: WP vs reference SINR
-add("**Согласие с теорией.** Рабочая точка с идеальной CSI против теоретического эффективного SINR после IRC (признак `sinr_ref_eff_db` при SNR 10 дБ), без IoT:\n")
-add("| модуляция | n | корреляция | остаток СКО, дБ | требуемый эфф. SINR, дБ | предел Шеннона, дБ | зазор, дБ |")
+add("**Agreement with theory.** Perfect-CSI working point against the theoretical effective post-IRC SINR (feature `sinr_ref_eff_db` at SNR 10 dB), no IoT:\n")
+add("| modulation | n | correlation | residual std, dB | required eff. SINR, dB | Shannon limit, dB | gap, dB |")
 add("|---|---|---|---|---|---|---|")
 fig, ax = plt.subplots(figsize=(6.4, 4.4))
 theory_corr, theory_gap = [], []
@@ -184,30 +184,30 @@ fig.tight_layout()
 fig.savefig(R / "wp_vs_sinr.png", dpi=130)
 plt.close(fig)
 add("\n![WP vs SINR](wp_vs_sinr.png)\n")
-add("Зазор до Шеннона растёт с порядком модуляции (BICM, max-log, короткие блоки LDPC) — ожидаемо.\n")
+add("The gap to Shannon grows with the modulation order (BICM, max-log, short LDPC blocks), as expected.\n")
 
 # --------------------------------------------------------------------------- censoring
-add("## 3. Цензурирование\n")
-add("Доля конфигураций, где рабочая точка найдена (`ok`), и причины цензуры:\n")
-add("| модель | " + " | ".join(LABEL[e] for e in EST) + " |")
+add("## 3. Censoring\n")
+add("Share of configurations where the working point was found (`ok`), and censoring reasons:\n")
+add("| model | " + " | ".join(LABEL[e] for e in EST) + " |")
 add("|---|" + "---|" * len(EST))
 for m in MODELS:
     rows = [r for r in recs if r["channel"] == m]
     if not rows:
         continue
     add(f"| {m} | " + " | ".join(f"{np.mean([r['estimators'][e]['status'] == 'ok' for r in rows]):.0%}" for e in EST) + " |")
-add(f"| **все** | " + " | ".join(f"**{np.mean([r['estimators'][e]['status'] == 'ok' for r in recs]):.0%}**" for e in EST) + " |")
+add(f"| **all** | " + " | ".join(f"**{np.mean([r['estimators'][e]['status'] == 'ok' for r in recs]):.0%}**" for e in EST) + " |")
 reasons = collections.Counter((e, r["estimators"][e]["reason"]) for r in recs for e in EST if r["estimators"][e]["status"] != "ok")
-add("\n| оценка | floor | hi_limit | excess_loss | budget | lo_limit |")
+add("\n| estimator | floor | hi_limit | excess_loss | budget | lo_limit |")
 add("|---|---|---|---|---|---|")
 for e in EST:
     add(f"| {LABEL[e]} | " + " | ".join(str(reasons.get((e, k), 0)) for k in ("floor", "hi_limit", "excess_loss", "budget", "lo_limit")) + " |")
 add("")
 
 # --------------------------------------------------------------------------- CE loss
-add("## 4. Потери от оценки канала\n")
-add("CE loss = WP(оценка) − WP(идеальная CSI) на той же конфигурации, только пары `ok`/`ok`.\n")
-add("| оценка | медиана | среднее | p90 | n | " + " | ".join(MODELS) + " |")
+add("## 4. Channel-estimation loss\n")
+add("CE loss = WP(estimator) − WP(perfect CSI) on the same configuration, `ok`/`ok` pairs only.\n")
+add("| estimator | median | mean | p90 | n | " + " | ".join(MODELS) + " |")
 add("|---|---|---|---|---|" + "---|" * len(MODELS))
 for e in CE:
     v = [x for r in recs if (x := loss(r, e)) is not None]
@@ -217,7 +217,7 @@ add("")
 
 
 def by_bins(title, key, bins, fmt):
-    add(f"**По {title}** (медиана CE loss, дБ):\n")
+    add(f"**By {title}** (median CE loss, dB):\n")
     add("| " + title + " | n | " + " | ".join(LABEL[e] for e in CE) + " |")
     add("|---|---|" + "---|" * len(CE))
     for lo, hi in bins:
@@ -226,15 +226,15 @@ def by_bins(title, key, bins, fmt):
     add("")
 
 
-by_bins("модуляции", lambda r: MODS.index(r["modulation"]), [(0, 1), (1, 2), (2, 3)], lambda lo, hi: MODS[lo])
-by_bins("числу слоёв", lambda r: r["num_ue"] * 10 + r["rank"], [(11, 12), (12, 13), (21, 22), (22, 23)],
+by_bins("modulation", lambda r: MODS.index(r["modulation"]), [(0, 1), (1, 2), (2, 3)], lambda lo, hi: MODS[lo])
+by_bins("number of layers", lambda r: r["num_ue"] * 10 + r["rank"], [(11, 12), (12, 13), (21, 22), (22, 23)],
         lambda lo, hi: f"{lo // 10} UE × r{lo % 10}")
 by_bins("IoT", lambda r: r["iot_db"], [(0, 0.01), (0.5, 5), (5, 10), (10, 15), (15, 20.1)],
-        lambda lo, hi: "нет" if hi < 0.1 else f"{lo:g}–{hi:.0f} дБ")
-by_bins("скорости (макс. по UE)", lambda r: max(u["speed_kmh"] for u in r["ue"]), [(0, 15), (15, 30), (30, 60), (60, 90), (90, 121)],
-        lambda lo, hi: f"{lo}–{hi} км/ч")
-by_bins("разбросу задержек UE 0", lambda r: ds_of(r["ue"][0]), [(0, 50), (50, 150), (150, 400), (400, 1000), (1000, 1e5)],
-        lambda lo, hi: f"{lo:g}–{hi:g} нс" if hi < 1e4 else f"> {lo:g} нс")
+        lambda lo, hi: "none" if hi < 0.1 else f"{lo:g}–{hi:.0f} dB")
+by_bins("speed (max over UEs)", lambda r: max(u["speed_kmh"] for u in r["ue"]), [(0, 15), (15, 30), (30, 60), (60, 90), (90, 121)],
+        lambda lo, hi: f"{lo}–{hi} km/h")
+by_bins("UE 0 delay spread", lambda r: ds_of(r["ue"][0]), [(0, 50), (50, 150), (150, 400), (400, 1000), (1000, 1e5)],
+        lambda lo, hi: f"{lo:g}–{hi:g} ns" if hi < 1e4 else f"> {lo:g} ns")
 
 # figure: CE loss boxplot per model
 fig, axes = plt.subplots(1, len(MODELS), figsize=(max(3.2, 0.42 * len(CE)) * len(MODELS), 4.6), sharey=True)
@@ -279,7 +279,7 @@ fig.tight_layout()
 fig.savefig(R / "ce_loss_vs_speed_ds.png", dpi=130)
 plt.close(fig)
 add("![CE loss vs speed and DS](ce_loss_vs_speed_ds.png)\n")
-add("Медианы считаются по найденным рабочим точкам; при высоких скоростях часть оценок (особенно LS-lin+time avg) уходит в цензуру `floor`, так что реальная потеря там больше, чем показывает медиана.\n")
+add("Medians use found working points only; at high speed some estimators (LS-lin+time avg in particular) end up censored as `floor`, so the real loss there is larger than the median shows.\n")
 
 # best estimator
 best = collections.Counter()
@@ -287,17 +287,17 @@ for r in recs:
     vals = {e: r["estimators"][e]["wp_db"] for e in CE if r["estimators"][e]["status"] == "ok"}
     if vals:
         best[min(vals, key=vals.get)] += 1
-add(f"**Лучшая реализуемая оценка** (минимальный WP среди {len(CE)} оценок):\n")
-add("| оценка | доля конфигураций |")
+add(f"**Best realisable estimator** (lowest WP among {len(CE)} estimators):\n")
+add("| estimator | share of configurations |")
 add("|---|---|")
 for e in CE:
     add(f"| {LABEL[e]} | {best[e] / max(sum(best.values()), 1):.0%} |")
 add("")
 
 # --------------------------------------------------------------------------- perfect WP
-add("## 5. Рабочая точка с идеальной CSI\n")
-add("Медиана WP, дБ (IoT учитывается как есть):\n")
-add("| модель | " + " | ".join(f"{m} {u}UE r{k}" for m in MODS for u in (1, 2) for k in (1, 2)) + " |")
+add("## 5. Working point with perfect CSI\n")
+add("Median WP, dB (IoT included as drawn):\n")
+add("| model | " + " | ".join(f"{m} {u}UE r{k}" for m in MODS for u in (1, 2) for k in (1, 2)) + " |")
 add("|---|" + "---|" * 12)
 for ch in MODELS:
     cells = []
@@ -310,16 +310,16 @@ for ch in MODELS:
     add(f"| {ch} | " + " | ".join(cells) + " |")
 add("")
 # IoT offset
-add("Смещение WP относительно теоретического SINR растёт с IoT (16QAM): ")
+add("The WP offset from the theoretical SINR grows with IoT (16QAM): ")
 parts = []
 for lo, hi in ((0, 0.01), (0.5, 5), (5, 10), (10, 15), (15, 20.1)):
     y = [r["estimators"]["perfect"]["wp_db"] + r["features"]["sinr_ref_eff_db"] - 10 for r in recs
          if r["modulation"] == "qam16" and lo <= r["iot_db"] < hi and r["estimators"]["perfect"]["status"] == "ok"]
-    parts.append(f"{'нет IoT' if hi < 0.1 else f'{lo:g}–{hi:.0f} дБ'}: {np.median(y):.1f}")
-add("; ".join(parts) + " дБ. Признак `sinr_ref_eff_db` считается с широкополосной ковариацией помех и не видит её частотной селективности, поэтому при сильной помехе он оптимистичен — для модели рабочей точки `iot_db` нужен отдельным входом.\n")
+    parts.append(f"{'no IoT' if hi < 0.1 else f'{lo:g}–{hi:.0f} dB'}: {np.median(y):.1f}")
+add("; ".join(parts) + " dB. The feature `sinr_ref_eff_db` uses the wideband interference covariance and does not see its frequency selectivity, so it is optimistic under strong interference; a working-point model needs `iot_db` as a separate input.\n")
 
 # --------------------------------------------------------------------------- lmmse_ce prior
-add("## 6. Найденные особенности и рекомендации\n")
+add("## 6. Findings and recommendations\n")
 cens = collections.defaultdict(list)
 for r in recs:
     E = r["estimators"]
@@ -331,26 +331,26 @@ for r in recs:
     else:
         ds = [ds_of(u) for u in r["ue"]]
         cens["2 UE, DS(UE1) > 2·DS(UE0)" if ds[1] > 2 * ds[0] else "2 UE, DS(UE1) ≤ 2·DS(UE0)"].append(bad)
-add("1. **Априори `lmmse_ce` подобрано только под UE 0.** `run_config` передаёт LMMSE разброс задержек первого UE, а оцениватель Sionna использует одну ковариацию на все потоки. Доля конфигураций, где `lmmse_ce` не достигает BER = 1e-2:\n")
-add("| случай | доля | n |")
+add("1. **`lmmse_ce` prior and multiple UEs.** Sionna's LMMSE estimator uses one covariance for all streams, so its delay-spread prior must cover every UE (campaigns before 2026-10-17 used UE 0 only; `run_config` now takes the maximum). Share of configurations where `lmmse_ce` does not reach BER = 1e-2:\n")
+add("| case | share | n |")
 add("|---|---|---|")
 for k in ("1 UE", "2 UE, DS(UE1) ≤ 2·DS(UE0)", "2 UE, DS(UE1) > 2·DS(UE0)"):
     add(f"| {k} | {np.mean(cens[k]):.0%} | {len(cens[k])} |")
 for e in ("lmmse_exp", "ls_lin", "ls_soft_window"):
     a1 = [r["estimators"][e]["status"] != "ok" for r in recs if r["num_ue"] == 1 and r["estimators"]["perfect"]["status"] == "ok"]
     a2 = [r["estimators"][e]["status"] != "ok" for r in recs if r["num_ue"] == 2 and r["estimators"]["perfect"]["status"] == "ok"]
-    add(f"| для сравнения {LABEL[e]}: 1 UE / 2 UE | {np.mean(a1):.0%} / {np.mean(a2):.0%} | |")
-add("\nМетки `lmmse_ce` для 2 UE отражают этот артефакт, а не качество LMMSE. Исправление для следующего прогона: `max(ds_ns)` по UE (как уже сделано со скоростью).\n")
-add("""2. **LS-lin+time avg** при скоростях > 60 км/ч массово уходит в `floor`: усреднение по слоту при f_D ≈ 200–400 Гц разрушает оценку. Это физика; в диапазоне 0.5–120 км/ч эта оценка не сопоставима с остальными без учёта скорости.
-3. **Интерференты UMi/UMa** берутся как UE внутри того же сектора (тот же дроп-генератор), а не как UE соседних сот — их углы прихода и усиление антенны как у обслуживаемых UE. Для IRC это скорее оптимистично (помеха приходит с направлений главного лепестка).
-4. **Ковариация помех для IRC** — идеальная и широкополосная (усреднение по всему слоту). Реальный IRC оценивает её по RB; при частотно-селективной помехе это отдельная потеря, в кампании не учтённая.
-5. **Точность метки ±0.3 дБ** при скобке 2 дБ достаточна для регрессии; если нужна точнее — `fine_db = 1.0` удорожит поиск примерно на 1–2 точки на конфигурацию.
-6. Признаки каналов (PDP, корреляции, число обусловленности, SINR-референс) записаны для каждой конфигурации; `wp_long.csv` содержит интервальные метки для регрессии с цензурой (например, XGBoost `survival:aft`).
+    add(f"| for comparison, {LABEL[e]}: 1 UE / 2 UE | {np.mean(a1):.0%} / {np.mean(a2):.0%} | |")
+add("\nIf the 2-UE rows differ strongly, the `lmmse_ce` labels reflect the prior, not the quality of LMMSE.\n")
+add("""2. **LS-lin+time avg** is mostly censored as `floor` above 60 km/h: averaging over the slot at f_D ≈ 200–400 Hz destroys the estimate. This is physics; over 0.5–120 km/h this estimator is not comparable with the others without accounting for speed.
+3. **UMi/UMa interferers** are drawn as UEs inside the same sector (same drop generator), not as UEs of neighbouring cells, so their angles of arrival and antenna gain are like those of the served UEs. For IRC this is rather optimistic (interference arrives from main-lobe directions).
+4. **The IRC interference covariance** is perfect and wideband (averaged over the whole slot). A real IRC estimates it per RB; with frequency-selective interference that is an extra loss not included in the campaign.
+5. **A label accuracy of ±0.3 dB** with a 2 dB bracket is enough for regression; for more, `fine_db = 1.0` costs about 1–2 extra points per configuration.
+6. Channel features (PDP, correlations, condition number, reference SINR) are stored for every configuration; `wp_long.csv` holds interval labels for censored regression (for example XGBoost `survival:aft`).
 """)
 
 def iot_med(e, lo, hi):
     return np.median([x for r in recs if lo <= r["iot_db"] < hi and (x := loss(r, e)) is not None])
-add(f"""7. **Soft window и помехи.** Потеря soft window растёт с IoT с {iot_med('ls_soft_window', 0, 0.01):.1f} до {iot_med('ls_soft_window', 15, 20.1):.1f} дБ, у hard window — с {iot_med('ls_hard_window', 0, 0.01):.1f} до {iot_med('ls_hard_window', 15, 20.1):.1f} дБ. Порог винеровского веса считается от N0, а помеха поднимает «шумовой» пол тапов в N0·(1+INR) раз, поэтому soft window пропускает тапы помехи. Исправление: оценивать шум на тап по тапам вне окна (эмпирически), а не по N0.
+add(f"""7. **Soft window and interference.** The soft-window loss grows with IoT from {iot_med('ls_soft_window', 0, 0.01):.1f} to {iot_med('ls_soft_window', 15, 20.1):.1f} dB, the hard window's from {iot_med('ls_hard_window', 0, 0.01):.1f} to {iot_med('ls_hard_window', 15, 20.1):.1f} dB. With `--ce-soft-noise-mode thermal` the Wiener threshold is set from N0 while interference raises the per-tap floor to N0·(1+INR), so the soft window lets interference taps through; the default `outside` mode estimates the floor from the taps outside the window.
 """)
 
 # --------------------------------------------------------------------------- A-MMSE
@@ -374,7 +374,7 @@ def cq(rows, e, q=50):
 def fq(x):
     if math.isnan(x):
         return "—"
-    return "не найдена" if math.isinf(x) else f"{x:.2f}"
+    return "not found" if math.isinf(x) else f"{x:.2f}"
 
 
 AMMSE_KEY = ""
@@ -385,19 +385,19 @@ if "a_mmse" in CE:
                      "lmmse_exp", "ls_soft_window", "ls_lin") if e in CE]
     add(f"## {sec}. A-MMSE (arXiv:2506.00452)\n")
     sec += 1
-    add(f"""A-MMSE — attention-трансформер, который учит один фиксированный линейный фильтр W на блок 4 PRB (из 2×12 пилотных значений в 48 поднесущих × 14 символов); банк фильтров по SNR (−10…35 дБ, шаг 5) и по гребёнке DMRS, фильтр выбирается по N0. Обучен на UMa, 68 PRB (`models/paper_ce`); здесь {cfg['args']['num_prb']} PRB, то есть {cfg['args']['num_prb'] // 4} блока с одним и тем же W. RA-A-MMSE — его вариант ранга 6. `lmmse_data` — 2D LMMSE с той же ковариацией, оценённой по обучающим каналам: по статье A-MMSE сходится к лучшему фиксированному линейному фильтру, то есть к нему. Все оценщики из статей видят CDL-B/C/D и UMi впервые.
+    add(f"""A-MMSE is an attention transformer that learns one fixed linear filter W per 4-PRB block (from 2×12 pilot values to 48 subcarriers × 14 symbols); a filter bank over SNR (−10…35 dB, step 5) and DMRS comb, selected by N0. Trained on UMa, 68 PRB (`models/paper_ce`); here {cfg['args']['num_prb']} PRB, i.e. {cfg['args']['num_prb'] // 4} blocks sharing the same W. RA-A-MMSE is its rank-6 variant. `lmmse_data` is the 2D LMMSE with the covariance estimated from the training channels: according to the paper A-MMSE converges to the best fixed linear filter, which is this one. All paper estimators see CDL-B/C/D and UMi for the first time.
 
-Медианы в разделе 4 считаются только по найденным рабочим точкам и поэтому льстят оценщикам, которые чаще срываются. Здесь потеря с цензурой: если рабочая точка не найдена, потеря считается бесконечной (конфигурации без WP идеальной CSI исключены).
+The medians in section 4 use found working points only and therefore flatter estimators that fail more often. Here the loss is censored: a working point that was not found counts as infinite loss (configurations without a perfect-CSI WP are excluded).
 """)
-    add("| оценка | WP найдена | медиана (только найденные) | медиана с цензурой | p75 с цензурой | p90 с цензурой |")
+    add("| estimator | WP found | median (found only) | median with censoring | p75 with censoring | p90 with censoring |")
     add("|---|---|---|---|---|---|")
     for e in F:
         v = [x for r in recs if (x := loss(r, e)) is not None]
         add(f"| {LABEL[e]} | {ok_share[e]:.1%} | {med(v)} | {fq(cq(recs, e))} | {fq(cq(recs, e, 75))} | {fq(cq(recs, e, 90))} |")
     add("")
 
-    add("**A-MMSE против других оценок на тех же конфигурациях.** «Лучше/хуже» — разница рабочих точек больше 0.25 дБ или рабочая точка найдена только у одной из двух оценок:\n")
-    add("| против | n | A-MMSE лучше | одинаково (±0.25 дБ) | A-MMSE хуже | обе не найдены | медиана WP(A-MMSE) − WP(другой), дБ |")
+    add("**A-MMSE against the other estimators on the same configurations.** Better / worse means a working-point difference above 0.25 dB, or a working point found by only one of the two:\n")
+    add("| against | n | A-MMSE better | same (±0.25 dB) | A-MMSE worse | neither found | median WP(A-MMSE) − WP(other), dB |")
     add("|---|---|---|---|---|---|---|")
     for e in F[1:]:
         b = s = w = nn = 0
@@ -422,29 +422,29 @@ if "a_mmse" in CE:
     G = [e for e in ("a_mmse", "ra_a_mmse", "lmmse_data", "denoise_nn", "lmmse_ce", "lmmse_exp", "ls_lin") if e in CE]
 
     def cbins(title, groups):
-        add(f"**По {title}** (медиана потери с цензурой, дБ):\n")
+        add(f"**By {title}** (median censored loss, dB):\n")
         add(f"| {title} | n | " + " | ".join(LABEL[e] for e in G) + " |")
         add("|---|---|" + "---|" * len(G))
         for name, rows in groups:
             add(f"| {name} | {len(rows)} | " + " | ".join(fq(cq(rows, e)) for e in G) + " |")
         add("")
 
-    cbins("модели канала", [(m.upper(), [r for r in recs if r["channel"] == m]) for m in MODELS])
-    cbins("числу слоёв", [(f"{u} UE × r{k}", [r for r in recs if r["num_ue"] == u and r["rank"] == k])
+    cbins("channel model", [(m.upper(), [r for r in recs if r["channel"] == m]) for m in MODELS])
+    cbins("number of layers", [(f"{u} UE × r{k}", [r for r in recs if r["num_ue"] == u and r["rank"] == k])
                           for u in (1, 2) for k in (1, 2)])
-    cbins("модуляции", [(m, [r for r in recs if r["modulation"] == m]) for m in MODS])
-    cbins("IoT", [("нет" if hi < 0.1 else f"{lo:g}–{hi:.0f} дБ", [r for r in recs if lo <= r["iot_db"] < hi])
+    cbins("modulation", [(m, [r for r in recs if r["modulation"] == m]) for m in MODS])
+    cbins("IoT", [("none" if hi < 0.1 else f"{lo:g}–{hi:.0f} dB", [r for r in recs if lo <= r["iot_db"] < hi])
                   for lo, hi in ((0, 0.01), (0.5, 5), (5, 10), (10, 15), (15, 20.1))])
-    cbins("скорости (макс. по UE)", [(f"{lo}–{hi} км/ч", [r for r in recs if lo <= max(u["speed_kmh"] for u in r["ue"]) < hi])
+    cbins("speed (max over UEs)", [(f"{lo}–{hi} km/h", [r for r in recs if lo <= max(u["speed_kmh"] for u in r["ue"]) < hi])
                                      for lo, hi in ((0, 15), (15, 30), (30, 60), (60, 90), (90, 121))])
-    cbins("разбросу задержек UE 0", [(f"{lo:g}–{hi:g} нс" if hi < 1e4 else f"> {lo:g} нс", [r for r in recs if lo <= ds_of(r["ue"][0]) < hi])
+    cbins("UE 0 delay spread", [(f"{lo:g}–{hi:g} ns" if hi < 1e4 else f"> {lo:g} ns", [r for r in recs if lo <= ds_of(r["ue"][0]) < hi])
                                      for lo, hi in ((0, 50), (50, 150), (150, 400), (400, 1000), (1000, 1e5))])
 
     rs = collections.Counter(r["estimators"]["a_mmse"]["reason"] for r in recs if r["estimators"]["a_mmse"]["status"] != "ok")
     rs_d = collections.Counter(r["estimators"]["lmmse_data"]["reason"] for r in recs
                                if "lmmse_data" in CE and r["estimators"]["lmmse_data"]["status"] != "ok")
-    add("Причины, по которым рабочая точка не найдена: A-MMSE — " + ", ".join(f"`{k}` {v}" for k, v in rs.most_common()) +
-        ("; LMMSE (data cov.) — " + ", ".join(f"`{k}` {v}" for k, v in rs_d.most_common()) if rs_d else "") + ".\n")
+    add("Reasons the working point was not found: A-MMSE: " + ", ".join(f"`{k}` {v}" for k, v in rs.most_common()) +
+        ("; LMMSE (data cov.): " + ", ".join(f"`{k}` {v}" for k, v in rs_d.most_common()) if rs_d else "") + ".\n")
 
     if "lmmse_data" in CE:
         pairs = [(loss(r, "lmmse_data"), loss(r, "a_mmse")) for r in recs
@@ -466,10 +466,10 @@ if "a_mmse" in CE:
         add("![A-MMSE vs LMMSE data](ammse_vs_lmmse_data.png)\n")
 
     ref = [e for e in ("lmmse_data", "ls_lin", "denoise_nn", "lmmse_ce") if e in CE]
-    AMMSE_KEY = (f"- **A-MMSE**: рабочая точка найдена в {ok_share['a_mmse']:.0%} конфигураций, медианная потеря с цензурой "
-                 f"{fq(cq(recs, 'a_mmse'))} дБ против " +
+    AMMSE_KEY = (f"- **A-MMSE**: working point found in {ok_share['a_mmse']:.0%} of configurations, median censored loss "
+                 f"{fq(cq(recs, 'a_mmse'))} dB against " +
                  ", ".join(f"{LABEL[e]} {fq(cq(recs, e))}" for e in ref) +
-                 " дБ (подробно — раздел 7).\n")
+                 " dB (details in section 7).\n")
 
 # --------------------------------------------------------------------------- comparison with an earlier campaign
 if COMPARE:
@@ -483,14 +483,14 @@ if COMPARE:
                 except json.JSONDecodeError:
                     pass
     common = [r for r in recs if r["id"] in old and old[r["id"]]["seed"] == r["seed"]]
-    add(f"## {sec}. Сравнение с кампанией `{COMPARE.name}`\n")
+    add(f"## {sec}. Comparison with campaign `{COMPARE.name}`\n")
     sec += 1
     same_cfg = sum(old[r["id"]]["iot_db"] == r["iot_db"] and old[r["id"]]["num_interferers"] == r["num_interferers"]
                    for r in common)
-    add(f"Тот же план (seed, модели, ячейки): {len(common)} общих конфигураций, у {same_cfg} совпадают и IoT, и число интерферентов. "
-        "Код между кампаниями изменился только добавлением оценщиков; слоты и поиск WP общие для всех оценщиков, "
-        "поэтому разница ниже — эффект другого набора оценщиков на ход поиска и шум Монте-Карло.\n")
-    add("| оценка | статус совпал | n (обе ok) | медиана |ΔWP|, дБ | среднее ΔWP (новая − старая), дБ | p95 |ΔWP|, дБ |")
+    add(f"Same plan (seed, models, cells): {len(common)} common configurations, {same_cfg} of them with the same IoT and number of interferers. "
+        "Between the campaigns the code changed only by adding estimators; slots and the WP search are shared by all estimators, "
+        "so the differences below are the effect of a different estimator set on the search path, plus Monte-Carlo noise.\n")
+    add("| estimator | same status | n (both ok) | median |ΔWP|, dB | mean ΔWP (new − old), dB | p95 |ΔWP|, dB |")
     add("|---|---|---|---|---|---|")
     for e in [e for e in EST if e in old[common[0]["id"]]["estimators"]]:
         st_same = np.mean([old[r["id"]]["estimators"][e]["status"] == r["estimators"][e]["status"] for r in common])
@@ -506,31 +506,31 @@ ok_share = {e: np.mean([r["estimators"][e]["status"] == "ok" for r in recs]) for
 interp_txt = ""
 if interp:
     d = np.array([x["campaign"] - x["dense"] for x in interp["rows"]])
-    interp_txt = f", точность WP ±{d.std():.1f} дБ"
+    interp_txt = f", WP accuracy ±{d.std():.1f} dB"
 by_loss = sorted(CE, key=ce_med)
 by_ok = sorted(CE, key=lambda e: -ok_share[e])
-key = f"""## Главное
+key = f"""## Key results
 
-- {"Кампания завершена" if N >= plan_n else f"Посчитано {N} из {plan_n} конфигураций"}, ошибок выполнения {len(errors)}; вычисления проверены: метки пересчитываются из кривых {"без расхождений" if mism == 0 else f"с {mism} расхождениями"}{interp_txt}, WP с идеальной CSI согласуется с теоретическим SINR (|корреляция| {min(theory_corr):.2f}–{max(theory_corr):.2f}, зазор до Шеннона {min(theory_gap):.1f}–{max(theory_gap):.1f} дБ).
-- Медианная потеря от оценки канала (IRC, BER = 1e-2, только найденные рабочие точки): {', '.join(f'{LABEL[e]} {ce_med(e):.1f}' for e in by_loss)} дБ.
-- По надёжности (доля найденных рабочих точек) порядок другой: {', '.join(f'{LABEL[e]} {ok_share[e]:.0%}' for e in by_ok)}.
-- Потери растут с числом слоёв, разбросом задержек и скоростью; у LS-lin+time avg — резко со скоростью выше 60 км/ч.
-- Два артефакта постановки: априори `lmmse_ce` подобрано только под UE 0 (для 2 UE с DS(UE1) > 2·DS(UE0) рабочая точка не найдена в {np.mean(cens['2 UE, DS(UE1) > 2·DS(UE0)']):.0%} случаев), порог soft window не учитывает помеху (раздел 6).
+- {"Campaign complete" if N >= plan_n else f"{N} of {plan_n} configurations done"}, {len(errors)} runtime errors; verified: labels are recomputed from the curves {"without mismatches" if mism == 0 else f"with {mism} mismatches"}{interp_txt}, the perfect-CSI WP agrees with the theoretical SINR (|correlation| {min(theory_corr):.2f}–{max(theory_corr):.2f}, gap to Shannon {min(theory_gap):.1f}–{max(theory_gap):.1f} dB).
+- Median channel-estimation loss (IRC, BER = 1e-2, found working points only): {', '.join(f'{LABEL[e]} {ce_med(e):.1f}' for e in by_loss)} dB.
+- Ranked by reliability (share of working points found) the order differs: {', '.join(f'{LABEL[e]} {ok_share[e]:.0%}' for e in by_ok)}.
+- Losses grow with the number of layers, delay spread and speed; for LS-lin+time avg sharply above 60 km/h.
+- `lmmse_ce` with 2 UEs and DS(UE1) > 2·DS(UE0): working point not found in {np.mean(cens['2 UE, DS(UE1) > 2·DS(UE0)']):.0%} of cases (section 6).
 """
 if AMMSE_KEY:
     key += AMMSE_KEY
 L.insert(2, key)
 
 if (O / "notes.md").exists():  # hand-written conclusions for this campaign
-    add(f"## {sec}. Выводы\n")
+    add(f"## {sec}. Conclusions\n")
     add((O / "notes.md").read_text().strip() + "\n")
     sec += 1
 
 figs = ["wp_vs_sinr.png", "ce_loss_by_model.png", "ce_loss_vs_speed_ds.png", "ammse_vs_lmmse_data.png"]
-add(f"## {sec}. Файлы\n")
-add(f"""- `{O}/results/worker_*.jsonl` — записи конфигураций; `arrays/ID.npz` — таблицы кластеров / геометрия дропа.
-- `wp_wide.csv`, `wp_long.csv`, `summary.md` — пересобраны `scripts/campaigns/summarize_random_campaign.py` по завершении.
-- `report/REPORT.md` и рисунки: {', '.join(f'`{f}`' for f in figs if (R / f).exists())}.
+add(f"## {sec}. Files\n")
+add(f"""- `{O}/results/worker_*.jsonl`: configuration records; `arrays/ID.npz`: cluster tables / drop geometry.
+- `wp_wide.csv`, `wp_long.csv`, `summary.md`: rebuilt by `scripts/campaigns/summarize_random_campaign.py` at the end.
+- `report/REPORT.md` and figures: {', '.join(f'`{f}`' for f in figs if (R / f).exists())}.
 """)
 
 (R / "REPORT.md").write_text("\n".join(L))

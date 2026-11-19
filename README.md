@@ -1,180 +1,122 @@
-# WirelessNN — 5G NR Uplink Receiver & Channel Estimation Research
+# WirelessNN: 5G NR uplink receiver and channel-estimation simulator
 
-A link-level research simulator for evaluating **5G NR PUSCH receiver algorithms,
-channel estimation and interference rejection**. Built on
-[NVIDIA Sionna](https://nvlabs.github.io/sionna/) PHY (v2, PyTorch), it connects
-algorithm choices to coded BER/BLER and the SNR needed to reach a target error rate.
+[![tests](https://github.com/upv/WirelessNN/actions/workflows/tests.yml/badge.svg)](https://github.com/upv/WirelessNN/actions/workflows/tests.yml)
 
-Use it to compare classical and learned channel estimators, separate estimation
-loss from detection performance, and investigate how conclusions change across
-channels, user ranks and interference levels.
+A link-level simulator for **5G NR PUSCH receivers, channel estimation and
+interference rejection**, built on [NVIDIA Sionna](https://nvlabs.github.io/sionna/)
+PHY 2 (PyTorch). It turns an algorithm choice into coded BER/BLER and into the
+**working point**, the SNR needed to reach BER = 0.01 or BLER = 0.1, so classical and
+learned estimators and receivers can be compared on the same slots.
 
-## Research questions this project addresses
+- 5 channel models (CDL-B/C/D, 3GPP UMi/UMa), up to 4 co-scheduled UEs with rank 1–2,
+  1, 2, 4 or 8 gNB antennas, other-cell interference.
+- 6 receivers, from matched filter to interference rejection combining (IRC) with a
+  measured covariance.
+- 14 built-in channel estimators (LS, LMMSE, delay-domain windows, EqDeepRx, A-MMSE)
+  and a plugin hook for your own, with [Channelformer](experiments/channelformer/README.md)
+  as a worked example.
+- Tools for large campaigns, datasets for learned estimators and working-point
+  prediction, and a physics test suite.
 
-| Question | Evidence produced |
-| --- | --- |
-| How much performance is lost with estimated rather than perfect CSI? | BER/BLER curves and working-point gaps under matched scenarios |
-| When does interference rejection help? | MR, ZF, L-MMSE and IRC comparisons, including measured-covariance `irc_real` |
-| Do learned estimators generalize beyond their training channels? | Comparisons with LS, windowed and LMMSE baselines on UMa, UMi and CDL channels |
-| Can simulation outputs support working-point prediction? | Channel tensors, scenario metadata, labels and regression baselines |
+## Results at a glance
 
-The **working point** is the SNR where coded BER reaches 0.01 or BLER reaches 0.1.
-SNR is defined per receive antenna and resource element; the conventions and
-limitations below are part of every comparison.
+![Mean SNR loss against perfect CSI, 4x2 MIMO campaign](docs/img/ce_loss_4x2.png)
 
-## Evidence and how to review it
-
-- **Campaign results:** the [research log](CHANGELOG.md) records a
-  5,000-configuration, 16-PRB channel-estimator campaign, comparisons of 14
-  estimators and the conditions where methods fail to reach the target.
-- **Physical validation:** [physics checks](scripts/physics_checks.py) and
-  [tests](tests/) cover channel statistics, power/noise calibration, DMRS and
-  receiver identities.
-- **Reproducibility:** [campaign scripts](scripts/campaigns/), saved scenario
-  parameters, seeded working-point searches and JSON outputs support repeatable
-  comparisons.
-- **Implementation:** start with the [tutorial](docs/TUTORIAL.md) and
-  [architecture](docs/ARCHITECTURE.md) for the processing chain and tensor conventions.
-
-Campaign findings are specific to their recorded setup and revision. In particular,
-older soft-window results require `--ce-soft-noise-mode thermal` to reproduce.
-Some complete campaign reports are referenced by server-local paths in the
-research log and are not included in this repository.
-
-**Scope:** this is a frequency-domain research simulator with ideal synchronization,
-not a complete hardware receiver. IRC uses perfect interference covariance by
-default; use the documented measured-covariance variants for that comparison.
-The research log also documents a power/INR normalization discrepancy in the
-frozen-channel dataset path; review that issue before combining its labels with
-link-level sweep results.
-
-## Author and contact
-
-[Pavel Uydanov](https://github.com/upv) ·
-[LinkedIn — project and R&D enquiries](https://www.linkedin.com/in/pavel-uydanov/)
-
-Related work: [SVD Lab](https://github.com/upv/Pavel-s_SVD), a numerical algorithm
-and GPU benchmarking laboratory.
-
-## Start here
-
-```bash
-scripts/setup_env.sh                                  # .venv, dependencies, installation check
-source .venv/bin/activate
-python examples/01_quickstart.py                      # first SNR sweep, edit the knobs on top
-python examples/02_one_slot_step_by_step.py           # what happens inside one slot
-python -m nr_ul_sim --list                            # everything that can be simulated
-```
-
-| Where | What |
-| --- | --- |
-| [docs/TUTORIAL.md](docs/TUTORIAL.md) | guided tour: first run → receivers → channel estimators → datasets → GPU campaigns |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | module map, data flow of one slot, tensor shapes, conventions |
-| `examples/` | five numbered starter files, each runs on a CPU in minutes |
-| `nr_ul_sim/` | the simulator package |
-| `scripts/` | environment setup, physics report, campaigns, dataset tools, training |
-| `tests/` | `python -m pytest tests` |
-| [CHANGELOG.md](CHANGELOG.md) | results of the campaigns so far and known issues |
-
-## What is modelled
-
-| Item | Value |
-| --- | --- |
-| Channel | CDL-B, CDL-C, CDL-D, 3GPP UMi, 3GPP UMa |
-| RMS delay spread | Configurable for CDL (defaults: CDL-B 100 ns, CDL-C 300 ns, CDL-D 100 ns). UMi/UMa draw DS from TR 38.901 |
-| Users | 1–4 co-scheduled UEs |
-| gNB antennas | 4 (configurable) |
-| Rank | 1–2 layers per UE |
-| Speed | 3–10 km/h (any positive value) |
-| SNR | −20…30 dB, **per receive antenna / resource element** (channel is energy-normalized) |
-| IoT | 0 / 10 / 20 dB. **0 dB = no neighbouring-cell interference**; 10 and 20 dB are INR = I/N |
-| Waveform | NR PUSCH, DMRS **Type-1**, mapping type A |
-| Numerology | 30 kHz SCS, **68 PRB = 816 used subcarriers**, **FFT 1024** (104 + 104 guards), 17 RBG (size 4) |
-| Modulation | QPSK (MCS 5, R≈0.37), 16QAM (MCS 14, R≈0.54), 64QAM (MCS 20, R≈0.55), all table 1. MCS 4 (R=0.30) would need LDPC BG1 repetition on a 68-PRB TB, which Sionna does not implement |
-| Receivers | MR (matched filter), L-MMSE (DMRS-LS), **Ideal MMSE** (perfect CSI), ZF, IRC |
-| CSI | DMRS-LS (NN / linear / linear+time-avg), LMMSE-CE (TDL prior), **LS + hard tap window**, **LS + soft (Wiener) tap window**, trained estimators (EqDeepRx DenoiseNN, data-covariance LMMSE, A-MMSE), or perfect; Ideal MMSE always uses the true channel; `--perfect-csi` applies perfect CSI to every receiver |
-| Metrics | Coded BER and BLER after LDPC TB decoding; working points at BER = 0.01 and at BLER = 0.1 |
-
-DMRS Type-1 provides 4 ports with `length=1` and 8 ports with `length=2`. The simulator selects length 2 automatically when the total number of layers exceeds 4 (for example 4 UEs × rank 2).
-
-## Receivers and IoT
-
-Serving users are always inside the MIMO channel matrix `H`. Thermal noise is white.
-
-- **MR** — maximum-ratio / matched filter; ignores spatial interference.
-- **ZF** — zero-forcing among co-scheduled layers.
-- **L-MMSE** — MMSE with `S = N0 I` (other-cell IoT treated as extra white noise) and DMRS-LS channel estimates.
-- **Ideal MMSE** — same L-MMSE combiner, but with **perfect CSI** (genie-aided lower bound).
-- **IRC** — MMSE with `S = R_iot + N0 I`, where `R_iot` is the spatial covariance of neighbouring-cell interference. That is the only receiver that can reject *coloured* inter-cell interference.
-
-IoT is generated as extra UEs through the same channel family, transmitting unit-power symbols on the used subcarriers. Their sum is scaled so that the **total** interference-to-noise ratio per receive antenna equals the requested IoT value, independent of the number of interferers and their antennas. IRC can use the true interferer covariance (`--iot-cov perfect`, default), the covariance of the DMRS residual `y − Ĥp` minus `N0 I` (`--iot-cov residual`, what a real receiver can measure), or the sample covariance of the whole received grid minus `N0 I` (`--iot-cov estimated`, contains the serving users' signal too).
-
-## Channel estimation
-
-| Name | Method |
-| --- | --- |
-| `perfect` | True channel (genie) |
-| `ls_nn`, `ls_lin`, `ls_lin_time_avg` | Sionna PUSCH LS with CDM/OCC despreading, nearest / linear / linear + time-average interpolation |
-| `lmmse_ce` | Sionna PUSCH LMMSE with a TDL time/frequency prior built from the scenario delay spread and speed. The TDL-B/C taps are the CDL-B/C cluster delays, so on CDL this is a **genie prior** (it knows the PDP); it collapses when the delay spread is 20 % off and is meaningless for UMi/UMa |
-| `lmmse_exp` | Same LMMSE with a smooth exponential-PDP frequency prior (RMS delay spread of the scenario for CDL, 1 µs for UMi/UMa, `--ce-lmmse-prior-ds-ns` to override) — the robust prior a real receiver would use |
-| `ls_hard_window` | LS at the DMRS, `M`-point IDFT of the 204 block estimates per DMRS symbol to the delay domain, taps outside `[-ce_window_neg_us, +ce_window_pos_us]` set to zero, `N`-point DFT back onto all 816 subcarriers, linear interpolation over OFDM symbols |
-| `ls_soft_window` | Same, but each tap is weighted by the Wiener gain `max(P_k − a·σ²_tap, 0) / P_k` with the tap power `P_k` averaged over receive antennas and DMRS symbols (`--ce-soft-threshold a`, `--ce-soft-within-window` to combine with the hard window) |
-| `ls_fir` | LS at the DMRS + a static 17-tap frequency FIR (EqDeepRx baseline, arXiv:2602.11834) |
-| `denoise_nn` | EqDeepRx DenoiseNN on the despread LS estimates — trained |
-| `lmmse_data`, `lmmse_data_1d` | 2D / 1D LMMSE with a covariance estimated from training channels — trained |
-| `a_mmse`, `ra_a_mmse` | A-MMSE (arXiv:2506.00452): attention-learned fixed linear filters per 4-PRB block, and its rank-6 variant — trained |
-
-The trained estimators load `models/paper_ce` (produced by `scripts/training/train_paper_ce.py` on UMa; UMi and CDL are outside the training distribution).
-
-Both windowed estimators report an error variance that includes the channel energy removed by the window, so the LLR scaling stays calibrated. The rectangular 24.5 MHz band leaks every path as `1/(πk)` over the taps, which bounds the hard window near −24 dB NMSE with the default 1 µs negative window; the soft window adapts to the SNR and wins below ~20 dB.
-
-## Install
-
-```bash
-scripts/setup_env.sh
-```
-
-creates `.venv`, installs the package in editable mode with the analysis and test
-extras, and runs `scripts/check_install.py` (library versions, GPU, trained models,
-a smoke simulation). By hand, simulator only:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Sionna 2.x requires PyTorch. A GPU is recommended for 68-PRB campaigns; a CPU is fine for the examples and `--quick` checks.
+In a 4x2 MIMO campaign (68 PRB, rank 2, 45 scenarios) the Channelformer estimator
+loses 0.17 dB on average against perfect CSI on CDL channels, and the best classical
+estimators lose about 0.5–0.7 dB. On UMi/UMa every estimator loses 2–4 dB, most of it
+at 64QAM. Across 5000 random channel configurations the matched-prior LMMSE has the
+lowest median loss (0.6 dB) but misses the target in 16 % of them. These and other
+results, with setups and reproduction commands, are in [docs/RESULTS.md](docs/RESULTS.md).
 
 ## Quick start
 
-Smoke test (8 PRB, three SNR points, no IoT):
+Python 3.10 or newer. A CPU is enough for everything in this section; a GPU is
+recommended for full 68-PRB campaigns.
 
 ```bash
-python -m nr_ul_sim --quick --channel cdl-c --modulation qpsk --receivers mr,lmmse,ideal_mmse,zf,irc
+git clone https://github.com/upv/WirelessNN.git
+cd WirelessNN
+scripts/setup_env.sh              # creates .venv, installs everything, runs an installation check
+source .venv/bin/activate
+python examples/01_quickstart.py  # first SNR sweep
 ```
 
-Example campaign matching the default numerology:
+`setup_env.sh` ends with `scripts/check_install.py`, which prints the library versions,
+the device the simulator will use (GPU or CPU), whether the trained estimator models
+are present, and runs a three-point smoke simulation (about 10 seconds on a CPU). On a GPU machine, if it reports
+no GPU, install the PyTorch wheel that matches your CUDA driver into `.venv`
+([selector](https://pytorch.org/get-started/locally/)) and run it again.
+
+The quick-start example sweeps the SNR on a small 8-PRB allocation for the IRC
+receiver with five channel estimators, at IoT 0 and 10 dB. It takes about 30 seconds
+on a 4-core laptop CPU and prints one line per SNR point, then the working points:
+
+```text
+=== CDL-C | QAM16 | 1 UE x rank 1 | IoT=10.0 dB | CSI=perfect,ls_nn,ls_lin,ls_lin_time_avg,lmmse_ce ===
+  SNR  -20.0 dB | perfect BER=4.813e-01 BLER=1.00e+00 | ls_nn BER=5.022e-01 BLER=1.00e+00 | ... | [1.2 s]
+  ...
+Working points (BER = 0.01)
+  IoT = 0.0 dB
+    perfect       5.08 dB
+    ls_nn         5.16 dB
+    ...
+  IoT = 10.0 dB
+    perfect       15.00 dB
+    ...
+```
+
+The SNR grid is a coarse 5 dB here, so the working points are rough; refine
+`SNR_DB` near the crossing for real comparisons. A JSON with every curve and the
+BER/BLER and working-point figures land in `results/examples/`. Edit the knobs at the
+top of the file (channel, modulation, UEs, receivers, estimators) and run it again.
+
+The same kind of run from the command line:
 
 ```bash
-python -m nr_ul_sim \
-  --channel cdl-c \
-  --delay-spread-ns 300 \
-  --num-ue 2 \
-  --rank 1 \
-  --num-rx-ant 4 \
-  --speed-kmh 3 \
-  --modulation qpsk \
-  --snr-db -20:30:2 \
-  --iot-db 0,10,20 \
-  --receivers mr,lmmse,ideal_mmse,zf,irc \
-  --estimators ls_lin \
-  --batch-size 8 \
-  --max-mc-iter 10 \
-  --outdir results
+python -m nr_ul_sim --list                       # every channel, receiver and estimator, with a description
+python -m nr_ul_sim --quick --channel cdl-c --receivers lmmse,irc --estimators ls_lin,lmmse_exp
+python -m nr_ul_sim --help                       # all options
 ```
 
-JSON results, BER/BLER plots and working-point bar charts are written under `results/`. The plots mark the interpolated SNR where BER crosses 0.01 and where BLER crosses 0.1. `python -m nr_ul_sim --help` documents every option. The full 68-PRB test matrix (every channel × modulation × receiver × IoT, plus the channel-estimator study) is `scripts/campaigns/run_campaigns.sh`; `scripts/campaigns/summarize_campaigns.py` turns its output into tables, and `scripts/physics_checks.py` measures every block of the simulator on its own (PDP and delay spread, time/frequency/spatial correlation, SNR and INR calibration, CE NMSE versus SNR).
+`--quick` shrinks any command to an 8-PRB, few-second smoke run. Drop it and set
+`--num-prb`, `--snr-db=-20:30:2`, `--batch-size` and `--max-mc-iter` for real runs.
+
+## Next steps
+
+| To | Read or run |
+| --- | --- |
+| understand one slot end to end | `python examples/02_one_slot_step_by_step.py` |
+| compare receivers under interference | `python examples/03_receivers_vs_interference.py` |
+| compare channel estimators (NMSE and working point) | `python examples/04_channel_estimators.py` |
+| build a channel → working-point dataset | `python examples/05_working_point_dataset.py`, [docs/DATASET.md](docs/DATASET.md) |
+| plug in your own channel estimator | [tutorial section 6](docs/TUTORIAL.md#6-channel-estimators), [experiments/channelformer](experiments/channelformer/README.md) |
+| run full campaigns on a GPU | [tutorial sections 9–10](docs/TUTORIAL.md#9-random-channel-campaign) |
+| check the physics | `python -m pytest tests`, `python scripts/physics_checks.py --outdir physics_out` |
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [docs/TUTORIAL.md](docs/TUTORIAL.md) | guided tour: first run, configuration, receivers, estimators, results, datasets, campaigns, troubleshooting |
+| [docs/MODEL.md](docs/MODEL.md) | what is simulated: scope, SNR and IoT definitions, receivers, estimators, known limitations |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | module map, data flow of one slot, tensor shapes, conventions |
+| [docs/DATASET.md](docs/DATASET.md) | the channel → working-point dataset |
+| [docs/RESULTS.md](docs/RESULTS.md) | campaign results |
+| [CHANGELOG.md](CHANGELOG.md) | what changed and when |
+
+## Repository layout
+
+```text
+nr_ul_sim/      the simulator package (python -m nr_ul_sim, python -m nr_ul_sim.dataset)
+examples/       five numbered starter scripts, each runs on a CPU in minutes
+scripts/        setup and installation check, physics report, campaigns, dataset tools, training
+experiments/    self-contained studies: Channelformer 4x2 campaign, LS-denoising dataset
+models/         trained estimator weights (paper_ce) and regression benchmarks
+tests/          pytest suite (python -m pytest tests)
+docs/           tutorial, model reference, architecture, dataset, results
+dataset/        metadata of datasets built during development (tensors are not in Git)
+```
 
 ## Python API
 
@@ -183,158 +125,34 @@ from nr_ul_sim import NRUplinkSimulator, SimConfig
 
 cfg = SimConfig(
     channel="umi",
-    num_ue=4,
+    num_ue=2,
     num_layers=1,
-    num_rx_ant=4,
-    speed_kmh=10,
     modulation="qam16",
-    snr_db=list(range(-20, 31, 4)),
-    iot_db=[0, 10, 20],
-    receivers=("mr", "lmmse", "ideal_mmse", "zf", "irc"),
+    snr_db=list(range(-10, 31, 4)),
+    iot_db=[0, 10],
+    receivers=("lmmse", "irc"),
+    channel_estimators=("ls_lin",),
+    num_prb=8,
 )
-sim = NRUplinkSimulator(cfg)
-campaign = sim.run()
+campaign = NRUplinkSimulator(cfg).run()
 print(campaign["iot"]["10.0"]["irc"]["working_point_db"])
 ```
 
-## Dataset: channel → working point
+Every `SimConfig` field is documented in `nr_ul_sim/parameters.py`, and the
+command-line options map onto them one to one.
 
-`nr_ul_sim/dataset.py` builds a supervised dataset for learning the map **channel tensor → working point**. Each scenario draws random link parameters, **freezes one channel realization**, and searches the SNR where the coded BER of the chosen receiver(s) crosses `target_ber` for every channel estimator and modulation. The default sweep is **IRC** × {perfect, LS-NN, LS-linear, LS-lin+time-avg, LMMSE-CE} × {QPSK, 16QAM, 64QAM}. Freezing is what makes the label well posed: only data, noise and interferer symbols are redrawn between Monte-Carlo iterations, so the working point belongs to the stored tensor rather than to a channel ensemble (`--channel-mode ensemble` restores the usual per-slot redraw). Scalar features stored with each tensor include RMS, numerical/effective rank of `H`, and rank / condition / dominant-fraction of `R_uu`.
+## Scope
 
-```bash
-python -m nr_ul_sim.dataset --num-samples 500 --outdir dataset/run1 --num-prb 68
-```
+This is a frequency-domain simulator with ideal synchronisation, not a complete
+hardware receiver. `irc` uses the perfect interference covariance by default; use
+`irc_real` or `--iot-cov residual` for a measured one. Learned estimators in
+`models/paper_ce` were trained on UMa only. See
+[docs/MODEL.md](docs/MODEL.md#known-limitations) for the full list.
 
-or edit the knobs at the top of `examples/05_working_point_dataset.py` and run it (a small demo by default).
+## Author
 
-Randomized per scenario: channel family, RMS delay spread (log-uniform, CDL only), 1–4 UEs × rank 1–2, speed, IoT level (`--p-no-iot` of the scenarios get none), and the number of interferers. Everything else — carrier, numerology, PRB count, antenna count — stays fixed so the tensors share one shape.
+[Pavel Uydanov](https://github.com/upv) ·
+[LinkedIn: project and R&D enquiries](https://www.linkedin.com/in/pavel-uydanov/)
 
-### Working-point search
-
-Instead of a full SNR sweep, the crossing is **bracketed** on a `--coarse-step` grid and then **bisected** down to `--refine-db`, reusing one BER measurement for all receivers and warm-starting from the previous result. A scenario costs ~15 SNR points instead of 26. Receivers that never reach the target within `[--snr-min, --snr-max]` are labelled `not_reached` (`NaN` in the packed arrays), those already below the range `below_range`.
-
-Every SNR point is measured with a random stream seeded from `(scenario seed, SNR)`, so the label does not depend on which points the search happened to visit — a resumed or resharded run reproduces the same numbers.
-
-### Output
-
-| File | Content |
-| --- | --- |
-| `meta.jsonl` | One JSON record per (scenario, modulation): all parameters, per-receiver working point and status, the full BER/BLER curve that was measured, and channel features |
-| `channels/<id>/H.npy` | Serving channel tensor `[rx, streams, symbols, subcarriers]` complex64 |
-| `channels/<id>/H_int.npy` | Interferer channel, same layout (only if IoT > 0) |
-| `channels/<id>/R_iot.npy` | Normalized interference spatial covariance `[rx, rx]` |
-| `channels/<id>/meta.json` | Simulation knobs for that drop: IoT, channel family, UE/rank/speed, plus per-modulation working points |
-| `meta.jsonl` / `dataset.csv` | One row per (scenario, modulation): all parameters, labels, paths to the npy files |
-| `dataset.npz` | Same records stacked and zero-padded, for batch training |
-
-```python
-import json
-import numpy as np
-from nr_ul_sim.dataset import load_dataset
-
-H = np.load("dataset/run1/channels/000000/H.npy")          # [rx, streams, sym, sc]
-info = json.loads(open("dataset/run1/channels/000000/meta.json").read())
-info["iot_db"], info["channel"], info["modulations"]["qpsk"]["working_point_db"]
-
-d = load_dataset("dataset/run1")   # stacked view of the same files
-d["H"]            # complex64 [N, rx ant, streams, symbols, subcarriers]
-d["iot_db"]
-d["channel_code"], d["modulation_code"]
-d["wp_lmmse"]     # NaN where BER = 0.01 was never reached
-```
-
-The stored tensor is the true channel, subsampled to `--num-symbol-bins` OFDM symbols × `--num-freq-bins` subcarriers spread evenly over the used band (not the DMRS estimate — receivers still estimate their own CSI during the search). Streams are ordered UE-major, `num_layers_total` of them are valid and the rest are zero padding.
-
-Runs are resumable and shardable: scenario `i` depends only on `(--seed, i)`, so `--start-index` splits the work across processes and `--resume` appends to an existing directory. `--pack-only` rebuilds `dataset.npz` / `dataset.csv` from `meta.jsonl`. `scripts/dataset/run_irc_ce.sh` launches a sharded run and `scripts/dataset/merge_shards.py` merges it.
-
-### Analysis
-
-```bash
-python scripts/dataset/analyze_dataset.py dataset/run1
-```
-
-Prints label coverage per receiver, the physical gaps that validate the run (16QAM − QPSK, L-MMSE − ideal MMSE, IRC gain per IoT bin) and a ridge regression on the scalar features alone — the bar a model trained on the raw tensors has to beat. Writes `analysis.png` next to the dataset.
-
-## Scripts
-
-| Script | Purpose |
-| --- | --- |
-| `scripts/setup_env.sh`, `scripts/check_install.py` | set up and verify an installation |
-| `scripts/physics_checks.py` | block-by-block physics report (figures + JSON) |
-| `scripts/campaigns/run_campaigns.sh` | full 68-PRB receiver and estimator matrix |
-| `scripts/campaigns/run_paper_ce_campaign.sh` | link-level campaign of the trained estimators |
-| `scripts/campaigns/summarize_campaigns.py` | tables and figures from the campaign JSONs |
-| `scripts/campaigns/run_random_campaign.py` | random-channel working-point campaign (restartable, multi-worker) |
-| `scripts/campaigns/summarize_random_campaign.py`, `report_random_campaign.py` | its CSV tables and report |
-| `scripts/campaigns/report_paper_ce.py` | report on the trained estimators |
-| `scripts/dataset/run_irc_ce.sh`, `watch_run.sh`, `merge_shards.py` | sharded dataset generation |
-| `scripts/dataset/analyze_dataset.py`, `analyze_ce.py` | dataset sanity checks and channel-estimation loss study |
-| `scripts/training/train_paper_ce.py`, `eval_paper_ce.py` | train and evaluate the EqDeepRx / A-MMSE estimators (`models/paper_ce`) |
-| `scripts/training/train_ridge.py`, `train_wp_models.py`, `train_wp_models2.py` | working-point regressors on the dataset |
-
-Every script starts with a docstring or comment giving its command line.
-
-## SNR definition
-
-The serving channel is normalized to unit average energy per resource element. Noise variance is
-
-```text
-N0 = 10^(-SNR_dB / 10)
-```
-
-so `SNR_dB` is the **per-antenna, per-RE** SNR of one serving UE, independent of MCS. A UE radiates unit power in total: with rank 2 each layer carries half of it (`--tx-power-norm per_layer` restores unit power per layer). With several co-scheduled UEs every UE arrives at that SNR. Other-cell IoT is the **total** interference power per antenna relative to this `N0`.
-
-## Notes
-
-- Simulations run in the **frequency domain** (one tap per subcarrier). Time-domain CP/ISI modelling is not included.
-- UMi/UMa delay spread is a random variable of the 3GPP drop; `--delay-spread-ns` applies to CDL-B/C.
-- 68 PRB × 14 symbols is a full NR 25 MHz / 30 kHz allocation and is the default everywhere (simulator, dataset, tests). One SNR point with 8 slots of 68 PRB takes about a second on an RTX-class GPU; start with `--quick` while debugging.
-- The gNB panel uses the 38.901 element pattern; it weights the CDL clusters by their angle of arrival, so the *effective* RMS delay spread at the receiver is smaller than the nominal CDL value (CDL-B 100 → ≈55 ns, CDL-C 300 → ≈70 ns). `scripts/physics_checks.py` reports both.
-- DMRS Type-1 OCC despreading averages two pilots 2 subcarriers apart; it attenuates a tap at delay `d` by `cos(2πd/N)` and, with two ports in one CDM group, leaks `(h₁(k) − h₁(k+2))/2` between the ports on a frequency-selective channel. Every DMRS estimator shares this.
-- Rank-2 with 4 UEs uses DMRS Type-1 length-2 (8 ports). Rank-1 with up to 4 UEs uses length-1.
-
-## Tests
-
-```bash
-python -m pytest tests
-```
-
-`tests/test_physics.py` checks every block on its own at 68 PRB (TB size against 38.214, DMRS layout and power, channel energy, delay spread, Jakes time correlation, frequency and spatial correlation, noise and INR calibration, covariance estimators, receiver identities such as IRC ≡ L-MMSE without interference), `tests/test_windowed_ce.py` the delay-domain estimators, the rest the CLI, metrics, plots and the dataset builder.
-
-## Measured-covariance IRC and interference-aware soft window
-
-`irc_real` always estimates the interference-plus-noise covariance from the
-received DMRS residual, using a dedicated `ls_soft_window` estimate and per-band
-OAS shrinkage. It never uses true serving/interferer channels for covariance,
-even with `--perfect-csi` (which still makes detector CSI genie-aided).
-`irc` retains the covariance selected by `--iot-cov`; its default is perfect.
-Compare both receivers on the same slots:
-
-```bash
-python -m nr_ul_sim --channel cdl-c --receivers lmmse,irc,irc_real \
-    --estimators ls_soft_window --iot-db 0,10,20 --snr-db=-4:20:2
-```
-
-`--incm-band-sc 24` controls the covariance frequency bands. The realistic
-receiver uses known thermal N0, ideal synchronization and the simulated DMRS
-layout; residual fitting can suppress observed interference, while channel
-estimation errors can inflate it. It is a practical covariance baseline,
-not a complete hardware receiver model or a guaranteed ordering against IRC.
-
-Soft window now estimates the tap disturbance floor by a median of the power
-outside the configured delay window, corrected for averaging across antennas
-and DMRS symbols, and bounded below by the thermal LS variance. The same floor
-is used for Wiener gains and reported error variance. It does not read IoT or
-true channels. Long channel tails and correlated disturbances can bias this
-estimate; when fewer than eight outside taps exist it falls back to thermal.
-`--ce-soft-noise-mode thermal` reproduces the previous algorithm for comparisons.
-
-Reproduce the paired 68-PRB, fixed-64-slot comparison (CDL-C / UMa, IoT 0/10/20):
-
-```bash
-python scripts/campaigns/benchmark_irc_real.py --outdir results/irc_real_comparison
-```
-
-This writes raw BER/BLER counts and `comparison.png`. The coarse SNR grid is
-for regression checks; refine near the target before quoting working-point gains.
-
+Related work: [SVD Lab](https://github.com/upv/Pavel-s_SVD), a numerical algorithm and
+GPU benchmarking laboratory.

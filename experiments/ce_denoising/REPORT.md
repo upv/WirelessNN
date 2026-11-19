@@ -1,190 +1,189 @@
-# Пробный датасет для оценки канала на 16 PRB
+# Linear channel-estimation baselines on the 16-PRB denoising dataset
 
-**14 октября 2026.** Создано 900 независимых реализаций для обучения модели
-**LS channel estimation → чистый истинный канал**. На 180 test-реализациях
-линейный LMMSE с ковариацией, обученной на train, и известной мощностью I+N
-достиг **MSE 0,349 / NMSE −4,56 dB**. Одна общая линейная регрессия только по LS
-дала **MSE 0,797 / NMSE −0,97 dB**. Это измеренные ориентиры для будущей модели,
-а не оценка предела достижимого качества нейросети.
+**October 2026.** Reference numbers that a trained LS-denoising model has to beat,
+measured on the dataset described in [README.md](README.md). On **4050
+independent test channels**:
 
-Генератор, PyTorch-загрузчик, MSE/BCE losses, анализ и инструкция находятся
-в этой папке. Данные сохранены на **compute server**:
-`experiments/ce_denoising/data/pilot_16prb`.
-Схема массивов и команды — в [README.md](README.md).
-
-## Состав и проверка датасета
-
-| Параметр | Пробный набор |
-| --- | --- |
-| Разделение | 540 train / 180 validation / 180 test, независимые seeds и каналы |
-| Радиосетка | 16 PRB, 192 поднесущие, FFT 256, 14 символов, 30 кГц, 3.5 ГГц |
-| Целевой UE | 1 UE, rank 1, 1 TX, 4 RX |
-| Вход и цель | Комплексные `h_ls` и `h_true`, каждый `[4,14,192]` |
-| Компактный LS | `[4,2,48]`: два DMRS-символа, 48 CDM-блоков |
-| Семейства каналов | CDL-B/C/D, UMa, UMi; по 180 записей |
-| SNR | Случайный −20…10 dB; фактически −19,978…9,994 dB |
-| IoT | 0 / 10 / 20, по 300 записей; 0 = отсутствие интерференции |
-| Интерфереры | Случайно 2…6; при IoT=0 их каналы сохранены, принятые вклады равны нулю |
-| Скорость | Независимо 3…30 км/ч для цели и каждого интерферера |
-| Модуляция | 299 QPSK / 307 16QAM / 294 64QAM |
-| Объём | 1 260 711 114 байт, примерно 1,26 GB / 1,17 GiB |
-| Время | Около 318,5 с целиком; 266,5 с непосредственно генерации/проверок примеров |
-| Окружение | RTX PRO 6000 Blackwell, PyTorch 2.14, Sionna 2.1, NumPy 2.5.3 |
-
-Генератор варьирует cluster delays/angles/spreads и K-factor CDL-D, а для
-UMa/UMi сохраняет случайную топологию, LoS/indoor, LSP и параметры лучей.
-У цели фактические скорости 3,004…29,994 км/ч; у 3621 настроенной связи
-интерфереров — 3,003…29,992 км/ч. Масштаб DS у CDL покрывает примерно 20…985 ns.
-LSP DS у UMa — 15…2455 ns, у UMi — 3,8…1595 ns: это модельные распределения,
-а не обрезка до CDL-диапазона. Параметры и исходные CIR хранятся вместе с каждым
-примером; они позволяют восстановить истинный H с исходной нормировкой.
-
-Средняя измеренная мощность шума составила **0,99948 от заданной**. Среднее
-отклонение измеренного SNR от номинального — **−0,019 dB**, INR — **−0,025 dB**.
-Номинальный SNR задан для канала, нормированного по полной FFT-сетке, поэтому
-реализованный SNR на активных поднесущих не обязан совпадать с ним в каждом
-слоте. Полные агрегаты: [sampling.csv](reports/sampling.csv),
-[coverage.csv](reports/coverage.csv).
-
-Для каждой записи проверены конечность чисел, допустимые диапазоны и тождества
-`y = H*x + noise + interference`, сумма отдельных интерфереров и разложение LS.
-Перед анализом проверены SHA-256 обоих NPZ каждого примера. Тесты проверяют
-воспроизводимость, восстановление H из CIR, соответствие DFT-фильтра основному
-симулятору, градиент BCE, resume и обнаружение повреждённого файла. **20 тестов
-нового эксперимента и общего модуля random channels прошли на сервере**;
-последующая проверка CIR для всех пяти семейств также прошла.
-
-## MSE и линейные методы
-
-Complex MSE — среднее `|Hhat−H|²` по RE, антеннам и независимым test-примерам.
-NMSE — отношение суммарной ошибки к суммарной энергии истинного канала, затем
-`10 log10`. Средняя энергия истинного канала на test составляет **0,9959**.
-Интервалы 95% — percentile bootstrap из 2000 повторов по целым реализациям;
-антенны и RE одного канала не считаются независимыми наблюдениями.
-
-| Метод | MSE | 95% интервал MSE | NMSE, dB |
+| Method | MSE | NMSE | BCE, nat/bit |
 | --- | ---: | ---: | ---: |
-| Нулевая оценка | 0,996 | 0,985…1,006 | 0,00 |
-| LS и линейная интерполяция | 112,654 | 72,132…159,711 | 20,54 |
-| LS и усреднение по DMRS во времени | 63,202 | 40,059…90,374 | 18,03 |
-| Фиксированное DFT-окно −1…+3 мкс | 52,605 | 33,685…74,134 | 17,23 |
-| Одна ridge map, только LS | 0,797 | 0,751…0,856 | −0,97 |
-| LMMSE с известной мощностью I+N | **0,349** | **0,301…0,399** | **−4,56** |
-| LS без шума и интерференции | 0,00243 | 0,00181…0,00314 | −26,13 |
+| LS, linear interpolation | 106.46 | +20.30 dB | 0.7666 |
+| One shared ridge map on LS only | 0.769 | −1.11 dB | 0.6302 |
+| LMMSE with known I + N power | **0.358** | **−4.43 dB** | **0.5808** |
 
-Noiseless LS — диагностическая ошибка CDM-усреднения и интерполяции, а не
-достижимый результат на зашумлённом входе. Истинный H даёт нулевой MSE по
-определению; условные −300 dB в машинных CSV для него — технический floor
-логарифма, не физическая ошибка.
+LMMSE is the best method tested on average over this mix of conditions, but it uses
+the known interference-plus-noise power. Growing the training set from 540 to
+12 150 channels changed the LMMSE filter very little (−0.2 % MSE on the same test
+channels) and the ridge map by −4.8 %. These are baselines for this filter
+structure, not limits for other linear methods or neural networks.
 
-Ridge обучает одну affine linear map из 96 комплексных LS-пилотов на 2688 RE
-для каждого RX-порта. Она использует только доступный LS-вход: компактные
-пилоты извлекаются из полного `h_ls` на соответствующих DMRS/поднесущих.
-Сильная общая регуляризация полезна в тяжёлых условиях, но излишне подавляет
-канал при хорошем SNR. Validation выбрал λ=`trace(C_obs)/96`.
+## Data and protocol
 
-LMMSE использует train-only ковариацию чистых LS-пилотов и cross-covariance с
-истинным каналом. Для каждой записи добавляется диагональный шум
-`(N0+I0)/4`: деление на четыре учитывает энергию DMRS и усреднение двух пилотов.
-Validation выбрал множитель этой мощности **1,0**. Этот метод получает известные
-SNR/IoT; сравнивать его с сетью, которой доступен только LS, надо с учётом этой
-дополнительной информации. Пространственные cross-covariance четырёх антенн
-в текущем фильтре не используются.
+| | Pilot set | Main set |
+| --- | ---: | ---: |
+| Realisations | 900 | 20 250 |
+| Train / validation / test | 540 / 180 / 180 | 12 150 / 4050 / 4050 |
+| Test channels per channel family | 36 | 810 |
+| Test channels per (SNR band, IoT) cell | 20 | 450 |
+| Size on disk | 1.26 GB | 28.2 GB |
+| Generation time (RTX PRO 6000 Blackwell) | 5 min 19 s | 1 h 58 min |
 
-Средний выигрыш LMMSE относительно LS — **25,09 dB по MSE**, но большая часть
-числа отражает подавление огромной ошибки LS при очень сильной интерференции.
-Сравнение с нулевой оценкой содержательнее: выигрыш LMMSE **4,56 dB**, общей
-ridge map **0,97 dB**. Эти цифры зависят от выбранной равномерной смеси SNR/IoT.
+Both sets use the same grid and distributions: 16 PRB, 192 subcarriers, FFT 256,
+14 symbols, one target UE, rank 1, 4 RX. CDL-B/C/D, UMa and UMi have equal shares;
+SNR is uniform in −20…10 dB; IoT is 0 / 10 / 20 dB with equal probability
+(**IoT = 0 means no interference**); 2…6 potential interferers; target and
+interferer speeds independently 3…30 km/h. All seeds are unique and the two sets do
+not overlap. Ranges and distributions are checked in
+[sampling.csv](evaluation_20k/reports/sampling.csv) and
+[coverage.csv](evaluation_20k/reports/coverage.csv).
 
-Раздельные записи помехи подтверждают причину большого LS MSE: при IoT=20
-средняя мощность ошибки от интерференции составляет **301,11**, от теплового
-шума **3,04**, от интерполяции **0,00175**. С учётом перекрёстных членов их
-сумма даёт MSE **303,74** в этой группе. Перекрёстные члены конечной выборки
-сохранены отдельно; складывать только три мощности как точное равенство нельзя.
+Sanity checks: measured noise power is 0.9995 of the nominal value, measured SNR
+and INR deviate from nominal by −0.02 dB on average. Every record passed the
+finiteness, range and identity checks (`y = H·x + noise + interference`, sum over
+interferers, LS decomposition) and the SHA-256 of both NPZ files was verified before
+analysis.
 
-## Зависимость от SNR и IoT
+Coefficients are fitted on train only, regularisation is chosen by validation MSE,
+and test is used only for the numbers below. No method is optimised for BCE.
 
-Каждая ячейка ниже содержит 20 независимых test-каналов. SNR внутри интервала
-случайный; это агрегаты по интервалам, не измерения ровно в их центрах.
+- **LS:** Sionna CDM despreading of the DMRS and linear interpolation.
+- **LS, time average:** the two DMRS estimates averaged over time.
+- **DFT window:** fixed delay window −1…+3 µs, then interpolation.
+- **Ridge:** one affine map from the 96 complex LS pilot values to the 2688 REs,
+  shared by all RX ports. The input is only the LS estimate. Validation chose
+  `λ = 0.1·trace(C_obs)/96` (1.0 on the pilot set).
+- **LMMSE:** train-set covariance of the clean pilots and cross-covariance with the
+  true H, diagonal loading `(N0 + I0)/4` for the current record (the factor 4
+  accounts for DMRS energy and averaging two pilots). Validation kept the power
+  factor at 1.0. Spatial covariance across the four RX ports is not used.
 
-| IoT | SNR, dB | LS NMSE | DFT NMSE | Ridge NMSE | LMMSE NMSE |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 0 | −20…−10 | 8,65 | 5,42 | −1,36 | −5,24 |
-| 0 | −10…0 | −0,42 | −3,61 | −1,13 | −11,18 |
-| 0 | 0…10 | −10,84 | −13,32 | −1,46 | −17,03 |
-| 10 | −20…−10 | 19,32 | 16,07 | −1,32 | −2,02 |
-| 10 | −10…0 | 9,68 | 6,53 | −1,22 | −5,66 |
-| 10 | 0…10 | −2,09 | −5,34 | −1,36 | −11,84 |
-| 20 | −20…−10 | 29,15 | 25,85 | 1,03 | −0,53 |
-| 20 | −10…0 | 19,65 | 16,16 | −1,28 | −1,89 |
-| 20 | 0…10 | 9,55 | 6,38 | −1,23 | −5,73 |
+## Results on the test set
 
-![NMSE по диапазонам SNR и IoT](reports/nmse_vs_snr.png)
+MSE is mean |Ĥ − H|² over REs, antennas and records. NMSE is total error over total
+channel energy (mean |H|² = 0.994 here). BCE is computed on the coded QAM bits after
+Ĥ → SIMO combining → QAM logits, averaged over the bits of a record and then over
+records; every method gets the same known N0 + I0 for it. 95 % intervals are
+percentile bootstrap over **whole realisations** (2000 resamples).
 
-Средний NMSE LMMSE по IoT: **−8,77 / −4,94 / −2,24 dB** для 0/10/20.
-При IoT=20 и SNR от −20 до −10 даже этот фильтр лишь немного превосходит
-нулевую оценку. Сильное регуляризующее подавление здесь не означает, что
-удалось подробно восстановить канал.
+| Method | MSE | 95 % CI | NMSE, dB | BCE | 95 % CI |
+| --- | ---: | --- | ---: | ---: | --- |
+| Zero estimate | 0.99391 | 0.99163…0.99632 | 0.00 | 0.69315 | — |
+| LS | 106.45856 | 97.57…115.88 | 20.30 | 0.76658 | 0.75743…0.77524 |
+| LS, time average | 59.07477 | 54.16…64.39 | 17.74 | 0.69920 | 0.69140…0.70672 |
+| DFT window | 50.76992 | 46.57…55.19 | 17.08 | 0.68051 | 0.67318…0.68772 |
+| Ridge on LS | 0.76906 | 0.7524…0.7866 | −1.11 | 0.63022 | 0.62617…0.63398 |
+| LMMSE, known I + N | **0.35841** | **0.3481…0.3695** | **−4.43** | **0.58084** | **0.57496…0.58672** |
+| Noiseless LS (interpolation floor) | 0.004771 | 0.00414…0.00544 | −23.19 | 0.57420 | 0.56829…0.58019 |
+| True H (reference) | 0 | 0 | −∞ | 0.57346 | 0.56752…0.57946 |
 
-По семействам средний NMSE LMMSE: CDL-B **−4,07**, CDL-C **−4,12**, CDL-D
-**−5,34**, UMa **−4,25**, UMi **−5,19 dB**. На семейство приходится только
-36 test-примеров; устойчивое ранжирование семейств требует большей выборки.
+LMMSE beats LS by 24.7 dB in MSE, but that number mostly reflects the huge LS error
+under strong interference: at IoT = 20 dB the LS MSE of 285.3 splits into 282.5 from
+interference, 2.8 from noise and 0.004 from interpolation (plus cross terms; see
+[error_components.csv](evaluation_20k/reports/error_components.csv)). Against the
+zero estimate, LMMSE gains 4.43 dB.
 
-![NMSE по семействам канала](reports/nmse_by_channel.png)
+### Where methods work and where they fail
 
-Машинные агрегаты: [общие](reports/aggregate.csv), [SNR и IoT](reports/by_snr_iot.csv),
-[каналы](reports/by_channel.csv), [IoT](reports/by_iot.csv),
-[состав ошибки LS](reports/error_components.csv).
+Each row aggregates 450 test channels; SNR is random inside the band.
 
-## BCE и выбор функции потерь
+| IoT | SNR, dB | LS NMSE | DFT NMSE | Ridge NMSE | LMMSE NMSE | LMMSE BCE |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 0 | −20…−10 | 8.86 | 5.67 | −1.91 | −5.52 | 0.6617 |
+| 0 | −10…0 | −1.09 | −4.16 | −2.02 | −10.90 | 0.4692 |
+| 0 | 0…10 | −10.73 | −13.13 | −1.97 | −17.40 | 0.1558 |
+| 10 | −20…−10 | 19.33 | 16.12 | −1.33 | −1.67 | 0.6927 |
+| 10 | −10…0 | 8.94 | 5.73 | −2.01 | −5.55 | 0.6759 |
+| 10 | 0…10 | −1.08 | −4.20 | −2.05 | −11.30 | 0.5099 |
+| 20 | −20…−10 | 28.88 | 25.67 | 2.35 | −0.36 | 0.6931 |
+| 20 | −10…0 | 18.86 | 15.64 | −1.43 | −1.91 | 0.6927 |
+| 20 | 0…10 | 8.91 | 5.67 | −2.03 | −5.75 | 0.6767 |
 
-Для BCE сохранены `x_tx`, data mask, QAM-символы и их coded bit labels,
-исходный transport block, принятый сигнал и отдельные составляющие помехи.
-`symbol_bce` реализует дифференцируемую цепочку Hhat → SIMO combining → QAM
-logits → BCE. Производная по Hhat проверена для всех пяти семейств каналов.
-BCE применяется к переданным битам после QAM mapping, не непосредственно к
-коэффициентам канала и не к исходным TB-битам перед LDPC.
+- At **IoT = 0, SNR 0…10 dB** the shared ridge map over-smooths: MSE 0.629 against
+  0.084 for LS and 0.048 for the DFT window. Without interference the DFT window also
+  has the better BCE (0.470 vs 0.553). Comparing a model only with the average ridge
+  MSE is therefore not enough.
+- At **IoT = 20, SNR −20…−10 dB** ridge is worse than the zero estimate (+2.35 dB)
+  and LMMSE gains only 0.36 dB; its BCE is essentially ln 2. Even the true H gives
+  0.6928 with this receiver.
 
-| Оценка канала | Средний BCE, nat/bit |
-| --- | ---: |
-| Нулевая | 0,69315 |
-| LS | 0,75212 |
-| LS с усреднением | 0,68755 |
-| Фиксированное DFT-окно | 0,66847 |
-| Ridge | 0,63829 |
-| LMMSE с известной I+N | 0,57457 |
-| Истинный H | 0,56834 |
+![NMSE by SNR and IoT](evaluation_20k/reports/nmse_vs_snr.png)
 
-Здесь сначала усредняются биты одного примера, затем примеры. Likelihood
-использует одинаковую для методов известную мощность N0+I0 и приближение белой
-Gaussian помехи. Окрашенная covariance и неопределённость Hhat не входят в
-likelihood. Это surrogate для обучения; таблица не измеряет coded BER/BLER и
-не доказывает близость к пределу декодирования. При IoT=20 даже истинный H даёт
-BCE 0,68344 — близко к случайному угадыванию 0,69315 в таком приёмнике.
+![BCE by SNR and IoT](evaluation_20k/reports/bce_vs_snr.png)
 
-Для первой нейросети разумно начать с complex MSE и проверять её против ridge
-и условного LMMSE на одинаковом входе. Затем добавить BCE и оценивать компромисс
-между MSE и битовой метрикой на validation. Низкий MSE и хорошая калибровка
-битовых вероятностей — разные свойства; коэффициент смешанного loss нельзя
-выбирать по этому test-набору. Нейросеть в данном эксперименте не обучалась.
+By channel family (810 test channels each):
 
-## Следующий масштаб эксперимента
+| Family | Ridge NMSE, dB | LMMSE NMSE, dB | LMMSE BCE |
+| --- | ---: | ---: | ---: |
+| CDL-B | −1.07 | −4.38 | 0.5879 |
+| CDL-C | −0.97 | −4.49 | 0.5773 |
+| CDL-D | −1.98 | −5.28 | 0.5899 |
+| UMa | −0.66 | −3.77 | 0.5810 |
+| UMi | −0.98 | −4.36 | 0.5681 |
 
-Текущие 540 обучающих каналов достаточны для проверки тракта и начальных
-линейных фильтров, но малы для оценки обобщения нейросети. Имеет смысл увеличить
-train, оставить независимые геометрии в validation/test и сравнить варианты:
-LS-only, LS с оценённой мощностью помехи и LS с известной мощностью как reference.
-Проверку BER/BLER следует проводить с одной и той же моделью детектора.
+More breakdowns: [by family](evaluation_20k/reports/by_channel.csv),
+[by IoT](evaluation_20k/reports/by_iot.csv),
+[by SNR and IoT](evaluation_20k/reports/by_snr_iot.csv),
+[by modulation](evaluation_20k/reports/by_modulation.csv).
 
-Полезное расширение — фильтр или сеть, использующие совместно четыре RX-порта,
-а также соседние PUSCH с DMRS, если нужна устойчивость к pilot contamination.
-Текущий датасет использует Gaussian OFDM-интерфереры и идеальную частотную
-модель без ISI/ICI; его результаты относятся именно к этим условиям.
+## Effect of the training-set size
 
-Грубая линейная проекция пилота: **10 тысяч примеров ≈14 GB и около 59 минут**,
-100 тысяч ≈140 GB и около 9,8 часа на этом сервере. Это оценка по 900 примерам,
-без запуска большого набора и без учёта изменения скорости диска/нагрузки.
+Filters fitted on the pilot set (540 train channels, regularisation chosen on its
+validation set) were frozen and applied to the same 4050 main-set test channels,
+noise, interference and symbols as the filters fitted on 12 150 channels. Paired
+differences "new − old" with 95 % intervals over realisations:
 
-В Git включены код, тесты, документация и агрегированные результаты. Каналы,
-параметры отдельных реализаций, обученные фильтры и рабочие логи остаются в
-игнорируемых `data/`, `artifacts/`, `runs/`.
+| Method | MSE old | MSE new | ΔMSE (95 % CI) | ΔBCE (95 % CI) |
+| --- | ---: | ---: | --- | --- |
+| Ridge | 0.80788 | 0.76906 | −0.0388 (−0.0462…−0.0313), −4.8 % | −0.0123 (−0.0134…−0.0113) |
+| LMMSE | 0.35919 | 0.35841 | −0.00078 (−0.00101…−0.00056), −0.2 % | −0.00011 (−0.00018…−0.00007) |
+
+540 training channels already give an LMMSE filter close to the one fitted on
+12 150. Ridge gains more, but its selected regularisation changed at the same time,
+so this compares two complete train/validation procedures, not the training-set size
+alone. On the pilot set's own 180 test channels the numbers were MSE 0.349 /
+NMSE −4.56 dB for LMMSE and 0.797 / −0.97 dB for ridge; the wider intervals there
+(LMMSE MSE 0.301…0.399) are why the main set was generated.
+
+![Pilot and main set with confidence intervals](evaluation_20k/reports/pilot_vs_large.png)
+
+Aggregates: [cohort_comparison.csv](evaluation_20k/reports/cohort_comparison.csv),
+[same_test_training_size.csv](evaluation_20k/reports/same_test_training_size.csv).
+The pilot-set aggregates and figures are kept in [reports/](reports/).
+
+## What this means for a trained model
+
+- An **LS-only** model should beat **MSE 0.769 / BCE 0.630** on average, and has to
+  be checked separately at high SNR without interference (where the DFT window is
+  strong) and at low SNR with IoT = 20 dB.
+- A model that receives the I + N power should be compared with **MSE 0.358 /
+  BCE 0.581**.
+- Track MSE and BCE together. The BCE here is a surrogate after SIMO combining with
+  a white Gaussian I + N model and no uncertainty of Ĥ; the real interference is
+  spatially coloured. It is not coded BER/BLER, and the true-H value is not a lower
+  bound for other detectors or interference-rejection schemes.
+- The data model has Gaussian OFDM interferers, an ideal frequency-domain channel
+  without ISI/ICI and no pilot contamination from neighbouring PUSCH. Joint
+  processing of the four RX ports was not tested by these filters.
+
+## Reproduce
+
+From the repository root, with both datasets generated (see [README.md](README.md))
+and the pilot-set filters saved by the first `analyze` run:
+
+```bash
+export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MPLBACKEND=Agg
+python -u -m experiments.ce_denoising.analyze \
+  --dataset experiments/ce_denoising/data/pilot_16prb \
+  --outdir experiments/ce_denoising/reports
+python -u -m experiments.ce_denoising.analyze \
+  --dataset experiments/ce_denoising/data/sustained_16prb_20261014_2h \
+  --outdir experiments/ce_denoising/evaluation_20k/reports
+python -u -m experiments.ce_denoising.compare_runs \
+  --pilot-dataset experiments/ce_denoising/data/pilot_16prb \
+  --dataset experiments/ce_denoising/data/sustained_16prb_20261014_2h \
+  --pilot-reports experiments/ce_denoising/reports \
+  --outdir experiments/ce_denoising/evaluation_20k/reports
+```
+
+The main-set analysis takes about 4 min on 4 CPU threads (peak RSS 5.9 GiB), the
+frozen-filter comparison about 2 min more. Environment: PyTorch 2.14, Sionna 2.1,
+NumPy 2.5.3.
