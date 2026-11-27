@@ -13,6 +13,9 @@ Models (deviations from the papers are listed in each docstring)
   helena    HELENA           Camelo Botero et al., arXiv 2506.13408
   swift     SwiftChannel     Lyu et al., arXiv 2605.01931 (student network, no KD/QAT)
   denoiserx EqDeepRx DenoiseNN + fixed linear interpolation, Honkala et al., arXiv 2602.11834
+
+Classical baselines in the same interface (no weights)
+  hard_window, soft_window   delay-domain windowed LS as nr_ul_sim ls_hard_window / ls_soft_window
 """
 
 from __future__ import annotations
@@ -56,9 +59,9 @@ class LSGrid(nn.Module):
     """Fixed interpolation of block LS to the slot: linear in frequency (block centres),
     linear in time through the DMRS symbols.  [B, 2, Nd, M] -> [B, 2, 14, 4M]."""
 
-    def __init__(self, dmrs=DEFAULT_DMRS):
+    def __init__(self, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
         super().__init__()
-        self.register_buffer("w", time_interp_matrix(dmrs), persistent=False)
+        self.register_buffer("w", time_interp_matrix(dmrs, n_sym), persistent=False)
 
     def forward(self, x):
         b, c, nd, m = x.shape
@@ -67,10 +70,10 @@ class LSGrid(nn.Module):
         return torch.einsum("tn,bcnf->bctf", self.w, xf)
 
 
-def zero_filled_grid(x, dmrs):
+def zero_filled_grid(x, dmrs, n_sym=NUM_SYM):
     """Block LS placed on the DMRS symbols (each block value on its 4 subcarriers), zeros elsewhere."""
     b, c, nd, m = x.shape
-    g = x.new_zeros(b, c, NUM_SYM, m * BLOCK_SC)
+    g = x.new_zeros(b, c, n_sym, m * BLOCK_SC)
     g[:, :, list(dmrs), :] = x.repeat_interleave(BLOCK_SC, dim=-1)
     return g
 
@@ -116,12 +119,13 @@ class CHEA(nn.Module):
     """
 
     def __init__(self, d=16, stages=2, heads=None, dff=None, hi_win=18, pool=4,
-                 nd=2, dmrs=DEFAULT_DMRS, shift=True):
+                 nd=2, dmrs=DEFAULT_DMRS, shift=True, n_sym=NUM_SYM):
         super().__init__()
         heads = heads or max(1, d // 8)
         dff = dff or 2 * d
         self.config = dict(d=d, stages=stages, heads=heads, dff=dff, hi_win=hi_win, pool=pool,
-                           nd=nd, dmrs=tuple(dmrs), shift=shift)
+                           nd=nd, dmrs=tuple(dmrs), shift=shift, n_sym=n_sym)
+        self.n_sym = n_sym
         self.hi_win, self.pool, self.shift = hi_win, pool, shift
         self.lo_span = hi_win * pool                                  # blocks per low-res window
         self.embed = nn.Linear(2 * nd + 1, d)
@@ -133,10 +137,10 @@ class CHEA(nn.Module):
         self.lo = nn.ModuleList(TBlock(d, heads, dff) for _ in range(stages))
         self.dec = nn.ModuleList(TBlock(d, heads, dff, cross=True) for _ in range(stages))
         self.ln_out = nn.LayerNorm(d)
-        self.up = nn.Linear(BLOCKS_PER_PRB * d, 2 * NUM_SYM * BLOCKS_PER_PRB * BLOCK_SC)
+        self.up = nn.Linear(BLOCKS_PER_PRB * d, 2 * n_sym * BLOCKS_PER_PRB * BLOCK_SC)
         nn.init.zeros_(self.up.weight)
         nn.init.zeros_(self.up.bias)
-        self.ls = LSGrid(dmrs)
+        self.ls = LSGrid(dmrs, n_sym)
 
     def forward(self, x):
         b, _, nd, m = x.shape
@@ -162,8 +166,8 @@ class CHEA(nn.Module):
         h = self.ln_out(h[:, :m])                                      # [B, M, d]
         p = m // BLOCKS_PER_PRB
         u = self.up(h.reshape(b, p, -1))                               # [B, P, 2*14*12]
-        u = u.reshape(b, p, 2, NUM_SYM, BLOCKS_PER_PRB * BLOCK_SC).permute(0, 2, 3, 1, 4)
-        return base + u.reshape(b, 2, NUM_SYM, m * BLOCK_SC)
+        u = u.reshape(b, p, 2, self.n_sym, BLOCKS_PER_PRB * BLOCK_SC).permute(0, 2, 3, 1, 4)
+        return base + u.reshape(b, 2, self.n_sym, m * BLOCK_SC)
 
 
 def chea_xl(**kw):
@@ -190,35 +194,36 @@ class HELENA(nn.Module):
     the global residual is the fixed LS interpolation instead of the zero-filled input.
     """
 
-    def __init__(self, d=64, heads=4, c1=16, c2=8, dropout=0.1, nd=2, dmrs=DEFAULT_DMRS):
+    def __init__(self, d=64, heads=4, c1=16, c2=8, dropout=0.1, nd=2, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
         super().__init__()
-        self.config = dict(d=d, heads=heads, c1=c1, c2=c2, dropout=dropout, nd=nd, dmrs=tuple(dmrs))
+        self.config = dict(d=d, heads=heads, c1=c1, c2=c2, dropout=dropout, nd=nd, dmrs=tuple(dmrs), n_sym=n_sym)
+        self.n_sym = n_sym
         self.dmrs = tuple(dmrs)
         self.conv1 = nn.Conv2d(2, c1, (2, 12), padding="same")
         self.conv2 = nn.Conv2d(c1, c2, (7, 6), padding="same")
         self.drop = nn.Dropout(dropout)
         self.psc = BLOCKS_PER_PRB * BLOCK_SC
-        self.embed = nn.Linear(c2 * NUM_SYM * self.psc, d)
+        self.embed = nn.Linear(c2 * n_sym * self.psc, d)
         self.att = nn.MultiheadAttention(d, heads, batch_first=True)
         self.ln = nn.LayerNorm(d)
         self.se = SE(d)
-        self.head = nn.Linear(d, 2 * NUM_SYM * self.psc)
+        self.head = nn.Linear(d, 2 * n_sym * self.psc)
         nn.init.zeros_(self.head.weight)
         nn.init.zeros_(self.head.bias)
-        self.ls = LSGrid(dmrs)
+        self.ls = LSGrid(dmrs, n_sym)
 
     def forward(self, x):
         b, _, nd, m = x.shape
         base = self.ls(x)
-        g = zero_filled_grid(x, self.dmrs)                             # [B, 2, 14, N]
+        g = zero_filled_grid(x, self.dmrs, self.n_sym)                 # [B, 2, S, N]
         f = self.drop(F.relu(self.conv2(F.relu(self.conv1(g)))))       # [B, c2, 14, N]
         p = m // BLOCKS_PER_PRB
-        t = f.reshape(b, f.shape[1], NUM_SYM, p, self.psc).permute(0, 3, 1, 2, 4).reshape(b, p, -1)
+        t = f.reshape(b, f.shape[1], self.n_sym, p, self.psc).permute(0, 3, 1, 2, 4).reshape(b, p, -1)
         t = self.embed(t)
         t = self.ln(t + self.att(t, t, t, need_weights=False)[0])
         t = self.se(t)
-        u = self.head(t).reshape(b, p, 2, NUM_SYM, self.psc).permute(0, 2, 3, 1, 4)
-        return base + u.reshape(b, 2, NUM_SYM, m * BLOCK_SC)
+        u = self.head(t).reshape(b, p, 2, self.n_sym, self.psc).permute(0, 2, 3, 1, 4)
+        return base + u.reshape(b, 2, self.n_sym, m * BLOCK_SC)
 
 
 # ----------------------------------------------------------------------------- SwiftChannel
@@ -247,23 +252,24 @@ class SwiftChannel(nn.Module):
     re-parameterisation or QAT (training recipe only).
     """
 
-    def __init__(self, c=12, n_blocks=4, k=3, nd=2, dmrs=DEFAULT_DMRS):
+    def __init__(self, c=12, n_blocks=4, k=3, nd=2, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
         super().__init__()
-        self.config = dict(c=c, n_blocks=n_blocks, k=k, nd=nd, dmrs=tuple(dmrs))
+        self.config = dict(c=c, n_blocks=n_blocks, k=k, nd=nd, dmrs=tuple(dmrs), n_sym=n_sym)
+        self.n_sym = n_sym
         self.entry = nn.Conv1d(2 * nd, c, k, padding=k // 2)
         self.blocks = nn.Sequential(*(SPAB(c, k) for _ in range(n_blocks)))
-        self.tail = nn.Conv1d(c, 2 * NUM_SYM * BLOCK_SC, k, padding=k // 2)
+        self.tail = nn.Conv1d(c, 2 * n_sym * BLOCK_SC, k, padding=k // 2)
         nn.init.zeros_(self.tail.weight)
         nn.init.zeros_(self.tail.bias)
-        self.ls = LSGrid(dmrs)
+        self.ls = LSGrid(dmrs, n_sym)
 
     def forward(self, x):
         b, _, nd, m = x.shape
         base = self.ls(x)
         h = self.entry(x.reshape(b, 2 * nd, m))
         h = self.blocks(h) + h
-        u = self.tail(h).reshape(b, 2 * NUM_SYM, BLOCK_SC, m)          # pixel shuffle 1D
-        u = u.permute(0, 1, 3, 2).reshape(b, 2, NUM_SYM, m * BLOCK_SC)
+        u = self.tail(h).reshape(b, 2 * self.n_sym, BLOCK_SC, m)       # pixel shuffle 1D
+        u = u.permute(0, 1, 3, 2).reshape(b, 2, self.n_sym, m * BLOCK_SC)
         return base + u
 
 
@@ -296,9 +302,9 @@ class DenoiseRx(nn.Module):
     features before the 2-channel output (U-Net style skip).
     """
 
-    def __init__(self, c=64, k=13, nd=2, dmrs=DEFAULT_DMRS):
+    def __init__(self, c=64, k=13, nd=2, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
         super().__init__()
-        self.config = dict(c=c, k=k, nd=nd, dmrs=tuple(dmrs))
+        self.config = dict(c=c, k=k, nd=nd, dmrs=tuple(dmrs), n_sym=n_sym)
         self.entry = nn.Conv2d(2, c, 1)
         self.b1 = SepRes(c, nd, k)          # full resolution
         self.b2 = SepRes(c, nd, k)          # 1/4
@@ -307,7 +313,7 @@ class DenoiseRx(nn.Module):
         self.out = nn.Conv2d(c, 2, 1)
         nn.init.zeros_(self.out.weight)
         nn.init.zeros_(self.out.bias)
-        self.ls = LSGrid(dmrs)
+        self.ls = LSGrid(dmrs, n_sym)
 
     def forward(self, x):
         b, _, nd, m = x.shape
@@ -323,6 +329,93 @@ class DenoiseRx(nn.Module):
         return self.ls(den)
 
 
+class DelayWindow(nn.Module):
+    """Delay-domain windowed LS, the ``ls_hard_window`` / ``ls_soft_window`` estimators of
+    ``nr_ul_sim/windowed_ce.py`` on one (rx antenna, layer) slice; no trainable weights.
+
+    Per DMRS symbol the M block values go to the delay domain (M-point IDFT), are
+    weighted per tap, and come back on all 4M subcarriers (zero-padded 4M-point DFT,
+    block value on subcarrier 4m + ``centre``), then linear in time through the DMRS
+    symbols, held constant outside them. Tap spacing 1 / (4M * scs); the window keeps
+    taps in [-neg_us, +pos_us].
+
+    hard   gain 1 inside the window, 0 outside.
+    soft   per-tap Wiener gain max(P_k - a s2, 0) / P_k, P_k the tap power averaged over
+           the DMRS symbols, s2 the median tap power outside the window (Wilson-Hilferty
+           corrected), a = ``threshold``.
+
+    Difference from nr_ul_sim: there the tap power is also averaged over the receive
+    antennas and s2 is bounded below by the LS error variance / M. Here each slice is
+    estimated alone (the zoo interface) from normalised input, so only the
+    outside-window median sets s2.
+    """
+
+    def __init__(self, mode="soft", pos_us=3.0, neg_us=1.0, threshold=1.5, within_window=False,
+                 scs_khz=30.0, centre=1, nd=2, dmrs=DEFAULT_DMRS, n_sym=NUM_SYM):
+        super().__init__()
+        if mode not in ("hard", "soft"):
+            raise ValueError("mode must be 'hard' or 'soft'")
+        self.config = dict(mode=mode, pos_us=pos_us, neg_us=neg_us, threshold=threshold,
+                           within_window=within_window, scs_khz=scs_khz, centre=centre,
+                           nd=nd, dmrs=tuple(dmrs), n_sym=n_sym)
+        self.mode, self.threshold, self.within = mode, float(threshold), bool(within_window)
+        self.pos_s, self.neg_s, self.scs = pos_us * 1e-6, neg_us * 1e-6, scs_khz * 1e3
+        self.centre = int(centre)
+        d = list(dmrs)
+        w = torch.zeros(n_sym, len(d))
+        for t in range(n_sym):
+            if len(d) == 1 or t <= d[0]:
+                w[t, 0] = 1.0
+            elif t >= d[-1]:
+                w[t, -1] = 1.0
+            else:
+                j = bisect.bisect_right(d, t) - 1
+                a = (t - d[j]) / (d[j + 1] - d[j])
+                w[t, j], w[t, j + 1] = 1 - a, a
+        self.register_buffer("w", w, persistent=False)
+
+    def window(self, m, device):
+        n = BLOCK_SC * m
+        tap = 1.0 / (n * self.scs)
+        half = (m + 1) // 2
+        pos = max(0, min(int(math.floor(self.pos_s / tap + 1e-9)), half - 1))
+        neg = max(0, min(int(math.floor(self.neg_s / tap + 1e-9)), m - half))
+        win = torch.zeros(m, device=device)
+        win[:pos + 1] = 1.0
+        if neg:
+            win[m - neg:] = 1.0
+        return win
+
+    def forward(self, x):
+        b, _, nd, m = x.shape
+        n = BLOCK_SC * m
+        h = torch.complex(x[:, 0].float(), x[:, 1].float())                 # [B, Nd, M]
+        taps = torch.fft.ifft(h, dim=-1)
+        win = self.window(m, x.device)
+        if self.mode == "hard":
+            gain = win.expand(b, 1, m)
+        else:
+            power = taps.abs().square().mean(1, keepdim=True)              # [B, 1, M]
+            out = win == 0
+            if int(out.sum()) >= 8:
+                corr = (1.0 - 1.0 / (9.0 * nd)) ** 3
+                s2 = power[..., out].quantile(0.5, dim=-1, keepdim=True) / corr
+            else:
+                s2 = torch.zeros_like(power[..., :1])
+            gain = ((power - self.threshold * s2) / power.clamp(min=1e-30)).clamp(0.0, 1.0)
+            if self.within:
+                gain = gain * win
+        taps = taps * gain
+        k = torch.arange(m, device=x.device)
+        half = (m + 1) // 2
+        idx = torch.where(k < half, k, n - (m - k))
+        padded = taps.new_zeros(b, nd, n)
+        padded[..., idx] = taps
+        g = torch.roll(torch.fft.fft(padded, dim=-1), shifts=self.centre, dims=-1)   # [B, Nd, N]
+        y = torch.einsum("tn,bnf->btf", self.w.to(g.real.dtype).to(torch.complex64), g)
+        return torch.stack([y.real, y.imag], 1)
+
+
 # ----------------------------------------------------------------------------- registry
 MODELS = {
     "chea": lambda **kw: CHEA(d=16, **kw),
@@ -330,8 +423,11 @@ MODELS = {
     "helena": HELENA,
     "swift": SwiftChannel,
     "denoiserx": DenoiseRx,
+    "hard_window": lambda **kw: DelayWindow(mode="hard", **kw),
+    "soft_window": lambda **kw: DelayWindow(mode="soft", **kw),
 }
-CLASSES = {"CHEA": CHEA, "HELENA": HELENA, "SwiftChannel": SwiftChannel, "DenoiseRx": DenoiseRx}
+CLASSES = {"CHEA": CHEA, "HELENA": HELENA, "SwiftChannel": SwiftChannel, "DenoiseRx": DenoiseRx,
+           "DelayWindow": DelayWindow}
 
 
 def build(name: str, **kw) -> nn.Module:
@@ -357,9 +453,10 @@ def estimate_slices(net: nn.Module, blk: torch.Tensor, max_batch: int = 2048) ->
 
 if __name__ == "__main__":
     for name in MODELS:
-        net = build(name)
-        n = sum(p.numel() for p in net.parameters())
-        for m in (12, 204):
-            y = net(torch.randn(3, 2, 2, m))
-            assert y.shape == (3, 2, NUM_SYM, 4 * m), (name, y.shape)
-        print(f"{name:10s} params {n:7d}  ok")
+        for kw, nd, ns in (({}, 2, NUM_SYM), (dict(nd=3, dmrs=(0, 5, 10), n_sym=13), 3, 13)):
+            net = build(name, **kw)
+            n = sum(p.numel() for p in net.parameters())
+            for m in (12, 72, 204):
+                y = net(torch.randn(3, 2, nd, m))
+                assert y.shape == (3, 2, ns, 4 * m), (name, y.shape)
+            print(f"{name:10s} nd={nd} n_sym={ns} params {n:7d}  ok")

@@ -42,7 +42,10 @@ def make_split(out: Path, name: str, n_slots: int, args, seed: int):
         ch, ds, speed = scenario(rng)
         cfg = SimConfig(channel=ch, delay_spread_ns=ds, speed_kmh=speed, num_ue=1,
                         num_rx_ant=args.rx_ant, num_ue_ant=args.ue_ant, num_layers=args.rank,
-                        num_prb=args.prb, num_interferers=0, receivers=("lmmse",),
+                        num_prb=args.prb, fft_size=args.fft_size, carrier_frequency=args.carrier_freq,
+                        mapping_type=args.mapping_type, num_ofdm_symbols=args.num_symbols,
+                        dmrs_additional_position=args.dmrs_addpos,
+                        num_interferers=0, receivers=("lmmse",),
                         channel_estimators=("ls_lin",), iot_db=[0.0],
                         seed=int(rng.integers(1 << 30)))
         sim = NRUplinkSimulator(cfg)
@@ -54,7 +57,7 @@ def make_split(out: Path, name: str, n_slots: int, args, seed: int):
                 slot = sim.generate_slot(args.batch, snr, 0.0)
                 no = torch.tensor(slot["no"], device=slot["y"].device, dtype=slot["y"].real.dtype)
                 h_blk, _ = est.blocks(slot["y"], no)                 # [B,1,Rx,Tx,S,Nd,M]
-                h = sim.true_channel(slot["h"])                      # [B,1,Rx,Tx,S,14,N]
+                h = sim.true_channel(slot["h"])                      # [B,1,Rx,Tx,S,sym,N]
             nd, m = h_blk.shape[-2:]
             blk = h_blk.reshape(-1, nd, m).cpu().numpy().astype(np.complex64)
             tgt = h.reshape(-1, h.shape[-2], h.shape[-1])
@@ -87,6 +90,11 @@ def main():
     ap.add_argument("--ue-ant", type=int, default=2)
     ap.add_argument("--rank", type=int, default=2)
     ap.add_argument("--prb", type=int, default=68)
+    ap.add_argument("--fft-size", type=int, default=1024)
+    ap.add_argument("--carrier-freq", type=float, default=3.5e9)
+    ap.add_argument("--mapping-type", choices=("A", "B"), default="A")
+    ap.add_argument("--num-symbols", type=int, default=14, help="PUSCH symbols per slot")
+    ap.add_argument("--dmrs-addpos", type=int, default=1, help="DMRS additional position")
     ap.add_argument("--seed", type=int, default=2023)
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)

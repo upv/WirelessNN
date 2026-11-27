@@ -3,6 +3,10 @@
     --ce-plugin experiments/ce_zoo/plugin.py \
     --estimators ...,zoo_chea,zoo_chea_xl,zoo_helena,zoo_swift,zoo_denoiserx
 
+zoo_hard_window / zoo_soft_window are the simulator's ls_hard_window / ls_soft_window run
+on single (rx antenna, layer) slices; their checkpoint (from train.py, no weights) holds
+the configuration and the error-variance table.
+
 Weights: <dir>/<name>.pt with <dir> = $CE_ZOO_WEIGHTS, else weights/ next to this file.
 A checkpoint written by train.py (runs/<name>/model.pt) works as well.
 """
@@ -27,6 +31,8 @@ NAMES = {
     "helena": "HELENA (arXiv 2506.13408)",
     "swift": "SwiftChannel student (arXiv 2605.01931)",
     "denoiserx": "EqDeepRx DenoiseNN + linear interpolation (arXiv 2602.11834)",
+    "hard_window": "per-slice ls_hard_window (delay-domain rectangular window)",
+    "soft_window": "per-slice ls_soft_window (delay-domain per-tap Wiener gain)",
 }
 
 
@@ -64,4 +70,5 @@ def _factory_for(name):
 
 
 for _n, _d in NAMES.items():
-    register_estimator(f"zoo_{_n}", _factory_for(_n), f"{_d} [plugin, trained]")
+    _tag = "plugin" if _n.endswith("_window") else "plugin, trained"
+    register_estimator(f"zoo_{_n}", _factory_for(_n), f"{_d} [{_tag}]")
