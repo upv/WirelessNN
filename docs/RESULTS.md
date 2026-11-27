@@ -37,7 +37,7 @@ block; the two antennas are combined by maximum-ratio combining.
 | `zoo_helena` | 133k | -15.16 | -16.54 | +0.76 to +0.85 |
 | `zoo_swift` | 9.6k | -14.56 | -15.62 | +0.71 to +0.78 |
 | `zoo_chea` | 33k | -15.24 | -15.55 | +0.66 to +0.73 |
-| `lmmse_exp` | 0 | | | +0.58 to +0.78 |
+| `lmmse_exp`\* | 0 | -13.07 | -13.78† | +0.58 to +0.78 |
 | soft delay window\* | 0 | -12.25 | -12.79 | +0.35 to +0.76 |
 | hard delay window\* | 0 | -6.39 | -8.13 | +0.09 to +0.33 |
 | LS + linear interpolation | 0 | -4.52 | -6.28 | -0.07 to +0.07 |
@@ -46,6 +46,9 @@ Over the air: range of the median per-slot gain over the six UE sets. Stand-layo
 24 PRB, PUSCH mapping type B, 13 symbols, DMRS at 0/5/10, random timing offsets of up to
 ±400 ns. \* With the stand's mean delay (about -110 ns, an early FFT window) removed
 before estimation; without it the delay windows lose 0.4 to 1.9 dB to the gNB estimate.
+LMMSE in simulation: exponential prior with 300 ns delay spread, noise level estimated from
+the slice, no delay removal (on air: 100 ns, delay removed). † Without timing offsets; with
+them it drops to -5.75 dB, because its causal prior cannot follow negative delays.
 
 - **Small is enough.** DenoiseNN with 42k weights matches CHEA-XL with 300k, in
   simulation and on air; even the 9.6k-weight SwiftChannel is level with LMMSE or better.

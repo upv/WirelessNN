@@ -34,13 +34,14 @@ small neural channel estimators beat the gNB's own estimate by about 0.9 dB of f
 | `zoo_helena` (HELENA) | 133k | -15.16 | +0.76 to +0.85 |
 | `zoo_swift` (SwiftChannel) | 9.6k | -14.56 | +0.71 to +0.78 |
 | `zoo_chea` (CHEA) | 33k | -15.24 | +0.66 to +0.73 |
-| `lmmse_exp` (LMMSE, exponential prior) | 0 | | +0.58 to +0.78 |
+| `lmmse_exp` (LMMSE, exponential prior) | 0 | -13.07 | +0.58 to +0.78 |
 | `ls_soft_window`, delay removed first | 0 | -12.25 | +0.35 to +0.76 |
 | `ls_lin` (LS + linear interpolation) | 0 | -4.52 | -0.07 to +0.07 |
 
-Simulation: validation NMSE on the 4x2 MIMO set (CDL-B/C/D, UMi, UMa, SNR -10 to 30 dB).
+Simulation: validation NMSE on the 4x2 MIMO set (CDL-B/C/D, UMi, UMa, SNR -10 to 30 dB);
+LMMSE there uses a 300 ns prior and estimates the noise level from the slice itself.
 Over the air: models retrained for the stand's slot layout, range of the median gain
-over six UE sets, 1 layer, uplink SNR 16 to 21 dB. Channelformer and the soft window
+over six UE sets, 1 layer, uplink SNR 16 to 21 dB. Channelformer, LMMSE and the soft window
 get the stand's mean delay (about -110 ns) removed first; the ce_zoo models were trained
 with random timing offsets and handle it themselves. With one receive antenna the gains are
 about half as large. Setup, method and the 1-RX numbers:

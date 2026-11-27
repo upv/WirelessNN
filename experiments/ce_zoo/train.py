@@ -160,12 +160,12 @@ def main():
     n_sym = tr_tgt.shape[1]
     assert len(dmrs) == tr_blk.shape[1], f"--dmrs has {len(dmrs)} symbols, data has Nd={tr_blk.shape[1]}"
     kw = dict(nd=tr_blk.shape[1], dmrs=dmrs, n_sym=n_sym)
-    if args.model.endswith("_window"):
+    if args.model.endswith("_window") or args.model == "lmmse_exp":
         kw["scs_khz"] = args.scs_khz
     net = build(args.model, **kw).to(dev)
     n_par = sum(q.numel() for q in net.parameters())
     print(f"{args.model}: {type(net).__name__} {n_par} params", flush=True)
-    if n_par == 0:            # classical estimator (hard_window, soft_window): evaluate only
+    if n_par == 0:            # classical estimator (windows, lmmse_exp): evaluate only
         args.epochs = 1
     else:
         opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
