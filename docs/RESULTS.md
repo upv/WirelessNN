@@ -10,14 +10,57 @@ reaches 0.01 or BLER reaches 0.1. **CE loss:** working point of an estimator min
 the working point with perfect CSI on the same slots.
 
 Contents:
-[1 4x2 MIMO: 14 estimators and Channelformer](#1-4x2-mimo-14-estimators-and-channelformer) ·
-[2 Trained estimators at 68 PRB](#2-trained-estimators-at-68-prb) ·
-[3 Random-channel campaign](#3-random-channel-campaign-5000-configurations) ·
-[4 Interference-aware soft window](#4-interference-aware-soft-window) ·
-[5 Linear baselines for LS denoising](#5-linear-baselines-for-ls-denoising) ·
-[6 Physical validation](#6-physical-validation)
+[1 Neural estimators over the air](#1-neural-estimators-over-the-air) ·
+[2 4x2 MIMO: 14 estimators and Channelformer](#2-4x2-mimo-14-estimators-and-channelformer) ·
+[3 Trained estimators at 68 PRB](#3-trained-estimators-at-68-prb) ·
+[4 Random-channel campaign](#4-random-channel-campaign-5000-configurations) ·
+[5 Interference-aware soft window](#5-interference-aware-soft-window) ·
+[6 Linear baselines for LS denoising](#6-linear-baselines-for-ls-denoising) ·
+[7 Physical validation](#7-physical-validation)
 
-## 1. 4x2 MIMO: 14 estimators and Channelformer
+## 1. Neural estimators over the air
+
+**November 2026.** Five recent neural channel estimators
+([ce_zoo](../experiments/ce_zoo/README.md): CHEA, CHEA-XL, HELENA, SwiftChannel and the
+EqDeepRx DenoiseNN), Channelformer and the classical estimators, first in simulation and
+then replayed on uplink captures from an OAI-based 5G stand with two commercial UEs and a
+2-antenna gNB (1 layer, mostly 24 PRB, uplink SNR 16 to 21 dB, six UE sets of about
+2 700 decoded slots each). There is no true channel on air, so each slot is scored by its
+fit SNR |cHX|^2 / |Y - cHX|^2 on the data REs, with X rebuilt from the decoded transport
+block; the two antennas are combined by maximum-ratio combining.
+
+| Estimator | Weights | Simulation NMSE, 4x2 [dB] | Simulation NMSE, stand layout [dB] | Over the air, gain vs gNB estimate [dB] |
+| --- | ---: | ---: | ---: | ---: |
+| `zoo_chea_xl` | 302k | -16.29 | -17.70 | +0.88 to +0.97 |
+| `zoo_denoiserx` | 42k | **-16.60** | -17.56 | +0.87 to +0.97 |
+| `channelformer`\* | 192k | -15.33 | | +0.82 to +0.93 |
+| `zoo_helena` | 133k | -15.16 | -16.54 | +0.76 to +0.85 |
+| `zoo_swift` | 9.6k | -14.56 | -15.62 | +0.71 to +0.78 |
+| `zoo_chea` | 33k | -15.24 | -15.55 | +0.66 to +0.73 |
+| `lmmse_exp` | 0 | | | +0.58 to +0.78 |
+| soft delay window\* | 0 | -12.25 | -12.79 | +0.35 to +0.76 |
+| hard delay window\* | 0 | -6.39 | -8.13 | +0.09 to +0.33 |
+| LS + linear interpolation | 0 | -4.52 | -6.28 | -0.07 to +0.07 |
+
+Over the air: range of the median per-slot gain over the six UE sets. Stand-layout NMSE:
+24 PRB, PUSCH mapping type B, 13 symbols, DMRS at 0/5/10, random timing offsets of up to
+±400 ns. \* With the stand's mean delay (about -110 ns, an early FFT window) removed
+before estimation; without it the delay windows lose 0.4 to 1.9 dB to the gNB estimate.
+
+- **Small is enough.** DenoiseNN with 42k weights matches CHEA-XL with 300k, in
+  simulation and on air; even the 9.6k-weight SwiftChannel is level with LMMSE or better.
+- **Train for the timing offset.** Models trained with random offsets handle the stand's
+  delay themselves: removing it first changes their result by at most 0.03 dB.
+- **Two antennas roughly double the gain.** With one receive antenna the same models
+  gain +0.17 to +0.38 dB (CHEA-XL +0.38, LMMSE +0.21), since noise dominates at this SNR.
+- These are channel-estimation results: the ce_zoo models have not been run through a
+  BLER campaign yet, and the air interface was rank 1 at one SNR range in one room.
+
+Recipes, per-model deviations from the papers and the full tables:
+[experiments/ce_zoo](../experiments/ce_zoo/README.md). The capture and replay tools are
+not part of this repository.
+
+## 2. 4x2 MIMO: 14 estimators and Channelformer
 
 **November 2026.** One UE with 2 antenna ports at rank 2, 4 gNB antennas (one
 38.901 panel 1x2 dual-pol), 68 PRB, 30 kHz, LMMSE receiver with LDPC decoding, no
@@ -62,7 +105,7 @@ Full per-scenario tables, NMSE versus SNR and BLER curves:
 [report.md](../experiments/channelformer/results/mimo4x2_20261116/report.md).
 Commands to reproduce: [experiments/channelformer](../experiments/channelformer/README.md).
 
-## 2. Trained estimators at 68 PRB
+## 3. Trained estimators at 68 PRB
 
 **October 2026.** IRC receiver, 68 PRB, 4 gNB antennas. 36 link-level campaigns
 over CDL-B, CDL-C, UMi, UMa × QPSK / 16QAM / 64QAM × (1 UE rank 1, 2 UEs rank 1,
@@ -93,7 +136,7 @@ Reproduce: `scripts/campaigns/run_paper_ce_campaign.sh`, then
 `scripts/campaigns/report_paper_ce.py` (NMSE curves:
 `scripts/training/eval_paper_ce.py`).
 
-## 3. Random-channel campaign (5000 configurations)
+## 4. Random-channel campaign (5000 configurations)
 
 **October 2026.** 5000 random configurations at 16 PRB (1000 per channel family),
 IRC with perfect interference covariance, all 14 estimators on shared slots. Every
@@ -125,7 +168,7 @@ with 3 workers.
 
 Reproduce: [tutorial section 9](TUTORIAL.md#9-random-channel-campaign).
 
-## 4. Interference-aware soft window
+## 5. Interference-aware soft window
 
 **October 2026.** `ls_soft_window` now estimates the per-tap disturbance floor from
 the taps outside the delay window instead of from thermal noise alone. Soft-window
@@ -143,7 +186,7 @@ median above the thermal floor. The same estimator feeds the measured-covariance
 receiver `irc_real`; compare it with genie IRC using
 `scripts/campaigns/benchmark_irc_real.py`.
 
-## 5. Linear baselines for LS denoising
+## 6. Linear baselines for LS denoising
 
 **October 2026.** A 20 250-realisation dataset of LS estimate → true channel pairs
 (16 PRB, 4 RX, CDL/UMi/UMa, SNR −20…10 dB, IoT 0/10/20 dB) for training denoising
@@ -152,7 +195,7 @@ shared ridge map on LS −1.1 dB, LMMSE with known interference-plus-noise power
 **−4.4 dB**. Details, breakdowns and the bit-level (BCE) metric:
 [experiments/ce_denoising/REPORT.md](../experiments/ce_denoising/REPORT.md).
 
-## 6. Physical validation
+## 7. Physical validation
 
 - `tests/test_physics.py` and `scripts/physics_checks.py` check every block on its
   own: TB size against 38.214, DMRS layout and power, channel energy, delay spread,

@@ -14,20 +14,47 @@ learned estimators and receivers can be compared on the same slots.
   measured covariance.
 - 14 built-in channel estimators (LS, LMMSE, delay-domain windows, EqDeepRx, A-MMSE)
   and a plugin hook for your own, with [Channelformer](experiments/channelformer/README.md)
-  as a worked example.
+  and five more recent neural estimators ([ce_zoo](experiments/ce_zoo/README.md)) as
+  worked examples, tested in simulation and on over-the-air captures.
 - Tools for large campaigns, datasets for learned estimators and working-point
   prediction, and a physics test suite.
 
 ## Results at a glance
 
+**Over the air.** On a 5G stand with two commercial UEs and a 2-antenna gNB, the best
+small neural channel estimators beat the gNB's own estimate by about 0.9 dB of fit SNR
+(median per slot), Channelformer by 0.84 dB and a well-tuned LMMSE by 0.6 dB. The
+42k-weight DenoiseNN matches the 300k-weight CHEA-XL, and both lead in simulation too.
+
+| Estimator | Weights | Simulation NMSE, 4x2 [dB] | Over the air, gain vs gNB estimate [dB] |
+| --- | ---: | ---: | ---: |
+| `zoo_chea_xl` (CHEA-XL) | 302k | -16.29 | +0.88 to +0.97 |
+| `zoo_denoiserx` (EqDeepRx DenoiseNN) | 42k | **-16.60** | +0.87 to +0.97 |
+| `channelformer` | 192k | -15.33 | +0.82 to +0.93 |
+| `zoo_helena` (HELENA) | 133k | -15.16 | +0.76 to +0.85 |
+| `zoo_swift` (SwiftChannel) | 9.6k | -14.56 | +0.71 to +0.78 |
+| `zoo_chea` (CHEA) | 33k | -15.24 | +0.66 to +0.73 |
+| `lmmse_exp` (LMMSE, exponential prior) | 0 | | +0.58 to +0.78 |
+| `ls_soft_window`, delay removed first | 0 | -12.25 | +0.35 to +0.76 |
+| `ls_lin` (LS + linear interpolation) | 0 | -4.52 | -0.07 to +0.07 |
+
+Simulation: validation NMSE on the 4x2 MIMO set (CDL-B/C/D, UMi, UMa, SNR -10 to 30 dB).
+Over the air: models retrained for the stand's slot layout, range of the median gain
+over six UE sets, 1 layer, uplink SNR 16 to 21 dB. Channelformer and the soft window
+get the stand's mean delay (about -110 ns) removed first; the ce_zoo models were trained
+with random timing offsets and handle it themselves. With one receive antenna the gains are
+about half as large. Setup, method and the 1-RX numbers:
+[experiments/ce_zoo](experiments/ce_zoo/README.md#over-the-air-replay).
+
 ![Mean SNR loss against perfect CSI, 4x2 MIMO campaign](docs/img/ce_loss_4x2.png)
 
-In a 4x2 MIMO campaign (68 PRB, rank 2, 45 scenarios) the Channelformer estimator
-loses 0.17 dB on average against perfect CSI on CDL channels, and the best classical
-estimators lose about 0.5–0.7 dB. On UMi/UMa every estimator loses 2–4 dB, most of it
-at 64QAM. Across 5000 random channel configurations the matched-prior LMMSE has the
-lowest median loss (0.6 dB) but misses the target in 16 % of them. These and other
-results, with setups and reproduction commands, are in [docs/RESULTS.md](docs/RESULTS.md).
+**Link level.** In a 4x2 MIMO campaign (68 PRB, rank 2, 45 scenarios) the Channelformer
+estimator loses 0.17 dB on average against perfect CSI on CDL channels, and the best
+classical estimators lose about 0.5–0.7 dB. On UMi/UMa every estimator loses 2–4 dB,
+most of it at 64QAM. The ce_zoo models have not been run through this BLER campaign yet.
+Across 5000 random channel configurations the matched-prior LMMSE has the lowest median
+loss (0.6 dB) but misses the target in 16 % of them. These and other results, with
+setups and reproduction commands, are in [docs/RESULTS.md](docs/RESULTS.md).
 
 ## Quick start
 
@@ -111,7 +138,7 @@ python -m nr_ul_sim --help                       # all options
 nr_ul_sim/      the simulator package (python -m nr_ul_sim, python -m nr_ul_sim.dataset)
 examples/       five numbered starter scripts, each runs on a CPU in minutes
 scripts/        setup and installation check, physics report, campaigns, dataset tools, training
-experiments/    self-contained studies: Channelformer 4x2 campaign, LS-denoising dataset
+experiments/    self-contained studies: Channelformer 4x2 campaign, ce_zoo estimators, LS-denoising dataset
 models/         trained estimator weights (paper_ce) and regression benchmarks
 tests/          pytest suite (python -m pytest tests)
 docs/           tutorial, model reference, architecture, dataset, results

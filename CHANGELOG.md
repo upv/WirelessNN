@@ -4,6 +4,17 @@ What changed in the code and the documentation, newest first. Campaign results a
 collected in [docs/RESULTS.md](docs/RESULTS.md); the current model limitations are in
 [docs/MODEL.md](docs/MODEL.md#known-limitations).
 
+## 2026-11-27 — ce_zoo estimators and over-the-air results
+
+- `experiments/ce_zoo`: five neural channel estimators from recent papers (CHEA,
+  CHEA-XL, HELENA, SwiftChannel, EqDeepRx DenoiseNN) as one `--ce-plugin`, plus the
+  hard and soft delay windows as zero-parameter baselines. The models take any DMRS
+  layout and slot length, and `train.py` can train them with random timing offsets.
+- Results of a replay on over-the-air captures from a 2-antenna 5G stand, summarised in
+  the README and in [docs/RESULTS.md](docs/RESULTS.md#1-neural-estimators-over-the-air).
+- `experiments/channelformer/gen_data.py`: options for the FFT size, carrier
+  frequency, PUSCH mapping type, slot length and DMRS positions (defaults unchanged).
+
 ## 2026-11-18 — documentation for publication
 
 - README rewritten around a short quick start and a results summary; the detailed
@@ -19,7 +30,7 @@ collected in [docs/RESULTS.md](docs/RESULTS.md); the current model limitations a
 - `experiments/channelformer`: Channelformer (Luan & Thompson, IEEE TWC 2023) as an
   `--ce-plugin` estimator, training-data generation, training, campaign and summary
   scripts, trained weights, and the results of a 45-scenario 4x2 rank-2 campaign
-  against all 14 built-in estimators ([results](docs/RESULTS.md#1-4x2-mimo-14-estimators-and-channelformer)).
+  against all 14 built-in estimators ([results](docs/RESULTS.md#2-4x2-mimo-14-estimators-and-channelformer)).
 
 ## 2026-10-27 — channel estimators from plugin files
 
@@ -65,7 +76,7 @@ collected in [docs/RESULTS.md](docs/RESULTS.md); the current model limitations a
   slot and independent of the detector CSI and `--iot-cov`.
 - `ls_soft_window` estimates the per-tap disturbance floor from the taps outside the
   delay window; `--ce-soft-noise-mode thermal` keeps the previous algorithm. With
-  interference this gains 5–12 dB NMSE ([results](docs/RESULTS.md#4-interference-aware-soft-window)).
+  interference this gains 5–12 dB NMSE ([results](docs/RESULTS.md#5-interference-aware-soft-window)).
   `ls_soft_window` results from before this change reproduce only with
   `--ce-soft-noise-mode thermal`.
 - `SimConfig.receivers` and `--receivers` default to all receivers, now including
@@ -102,7 +113,7 @@ and after.
 - `scripts/training/train_paper_ce.py` + `models/paper_ce/` (trained on UMa, 0–35 m/s,
   1–2 UE × rank 1–2, 68 PRB); `eval_paper_ce.py` (NMSE vs SNR, the same channel
   realisations at every SNR point); `run_paper_ce_campaign.sh`, `report_paper_ce.py`
-  ([results](docs/RESULTS.md#2-trained-estimators-at-68-prb)).
+  ([results](docs/RESULTS.md#3-trained-estimators-at-68-prb)).
 - `run_random_campaign.py --estimators` (default: all); `report_random_campaign.py`
   adds a censored-loss section, `--compare` with an earlier campaign and
   `<campaign>/notes.md` for hand-written conclusions.
@@ -111,7 +122,7 @@ and after.
 
 - `report_random_campaign.py`: report generator for `run_random_campaign.py` output
   (setup, verification, censoring, channel-estimation loss tables and figures)
-  ([results](docs/RESULTS.md#3-random-channel-campaign-5000-configurations)).
+  ([results](docs/RESULTS.md#4-random-channel-campaign-5000-configurations)).
 - `models/wp_bench`, `models/wp_bench2`: working-point regression benchmarks on
   `dataset/irc_ce10k`.
 

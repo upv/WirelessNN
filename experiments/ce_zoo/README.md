@@ -91,41 +91,49 @@ Validation NMSE on that data (random offsets of up to ±400 ns; LS interpolation
 
 ### Over-the-air replay
 
-These stand-layout checkpoints were replayed on uplink captures from a 2x2 OAI-based
-5G stand (two commercial UEs, about 1 300 to 1 500 decoded slots per capture, 1 gNB
-receive antenna, 1 layer, 5 to 24 PRB, fit SNR 16 to 20 dB). There is no true channel
-on air, so each slot is scored by the fit SNR |cHX|^2 / |Y - cHX|^2 on its data REs, with X
-rebuilt by re-encoding the decoded transport block and one complex gain c per slot.
-Median per-slot gain over the gNB's own estimate, range over the four capture/UE sets:
+These stand-layout checkpoints were replayed on uplink captures from an OAI-based 5G
+stand with two commercial UEs (captures of 19 November 2026; 1 layer, 7 to 24 PRB,
+mostly 24; uplink SNR reported by the gNB 16 to 21 dB). With 2 gNB receive antennas
+there are six UE sets (each UE alone and four sets from a capture with both active),
+2 567 to 2 768 decoded slots each; with 1 receive antenna, one UE and 2 762 slots.
+There is no true channel on air, so each slot is scored by the fit SNR
+|cHX|^2 / |Y - cHX|^2 on its data REs, with X rebuilt by re-encoding the decoded
+transport block and one complex gain c per slot and receive antenna; with 2 antennas the
+per-antenna fit SNRs are summed (maximum-ratio combining). Median per-slot gain over the
+gNB's own estimate:
 
-| estimator | gain vs gNB estimate [dB] |
-|---|---|
-| zoo_chea_xl | +0.35 to +0.36 |
-| zoo_denoiserx | +0.33 to +0.35 |
-| Channelformer (same layout, delay removed before the network) | +0.28 to +0.33 |
-| zoo_helena | +0.22 to +0.28 |
-| LMMSE, exponential delay profile | +0.16 to +0.21 |
-| zoo_swift | +0.13 to +0.21 |
-| zoo_chea | +0.06 to +0.19 |
-| soft window, delay removed before the window | -0.12 to +0.23 |
-| hard window, delay removed before the window | -0.32 to -0.12 |
-| linear interpolation | -0.41 to -0.46 |
-| hard window | -1.92 to -1.48 |
-| soft window | -2.16 to -1.55 |
+| estimator | 2 RX: range over the six UE sets [dB] | 1 RX [dB] |
+|---|---|---|
+| zoo_chea_xl | +0.88 to +0.97 | +0.38 |
+| zoo_denoiserx | +0.87 to +0.97 | +0.36 |
+| Channelformer (same layout, delay removed before the network) | +0.82 to +0.93 | +0.34 |
+| zoo_helena | +0.76 to +0.85 | +0.26 |
+| zoo_swift | +0.71 to +0.78 | +0.21 |
+| zoo_chea | +0.66 to +0.73 | +0.17 |
+| LMMSE, exponential delay profile | +0.58 to +0.78 | +0.21 |
+| soft window, delay removed before the window | +0.35 to +0.76 | +0.07 |
+| hard window, delay removed before the window | +0.09 to +0.33 | -0.21 |
+| linear interpolation | -0.07 to +0.07 | -0.43 |
+| hard window | -1.92 to -0.46 | -1.73 |
+| soft window | -1.93 to -0.39 | -1.78 |
+
+Every neural model beats the gNB's estimate in every UE set, and the top three beat
+LMMSE in every set by 0.15 to 0.3 dB. The spread between UE sets is about 0.1 dB for the
+neural models and 0.2 dB for LMMSE. At this SNR noise dominates the estimation error,
+so a second receive antenna roughly doubles what a better estimate is worth.
 
 The stand's receiver places its FFT window early, so the channel carries a delay of
 about -110 ns. The offset-trained chea_xl, denoiserx and helena handle it themselves:
 removing the mean delay before the network changes their result by at most 0.03 dB.
-At this SNR and with one receive antenna noise dominates, so the differences are small.
 The delay windows suffer from that delay: over 24 PRB a -100 ns delay is a phase ramp
 of about 0.9 cycle, so the DFT sees a jump at the band edges and the window cuts it
 off (error -15 dB in the outer eighths of the band against -26 to -29 dB inside).
 Removing the mean delay first fixes most of it, but the soft window still trails LMMSE
 and every trained model.
 
-With two gNB receive antennas (later captures, maximum-ratio combining) the trained
-models gain +0.82 to +0.97 dB over the gNB estimate, Channelformer +0.82 to +0.93,
-LMMSE +0.58 to +0.78 and the soft window with the delay removed +0.35 to +0.76.
+Earlier 1-RX captures (18 November, four capture/UE sets, about half of the slots lost
+to a tracing race in the receiver) gave the same order for the trained models and slightly smaller gains (zoo_chea_xl
++0.35 to +0.36 dB, LMMSE +0.16 to +0.21 dB).
 The capture and replay tools are not part of this repository.
 
 ## Use the estimators

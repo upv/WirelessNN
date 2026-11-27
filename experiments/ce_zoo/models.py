@@ -297,8 +297,8 @@ class DenoiseRx(nn.Module):
     frequency, 1x1 symbol mixer after each block; the denoised pilots are then
     interpolated by the fixed linear LS interpolator (as in the paper's receiver).
 
-    Deviations: depthwise-separable convs (paper: not stated) to stay near TR1's
-    budget; the 1/8-resolution path is upsampled back and added to the full-resolution
+    Deviations: depthwise-separable convs (paper: not stated) to keep the parameter
+    budget small; the 1/8-resolution path is upsampled back and added to the full-resolution
     features before the 2-channel output (U-Net style skip).
     """
 
