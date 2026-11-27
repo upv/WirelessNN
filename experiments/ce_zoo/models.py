@@ -16,6 +16,7 @@ Models (deviations from the papers are listed in each docstring)
 
 Classical baselines in the same interface (no weights)
   hard_window, soft_window   delay-domain windowed LS as nr_ul_sim ls_hard_window / ls_soft_window
+  lmmse_exp                  frequency LMMSE with an exponential delay prior (fixed tau)
 """
 
 from __future__ import annotations
@@ -329,6 +330,22 @@ class DenoiseRx(nn.Module):
         return self.ls(den)
 
 
+def time_weights(dmrs, n_sym) -> torch.Tensor:
+    """[n_sym, Nd] weights: linear in time between the DMRS symbols, held outside them."""
+    d = list(dmrs)
+    w = torch.zeros(n_sym, len(d))
+    for t in range(n_sym):
+        if len(d) == 1 or t <= d[0]:
+            w[t, 0] = 1.0
+        elif t >= d[-1]:
+            w[t, -1] = 1.0
+        else:
+            j = bisect.bisect_right(d, t) - 1
+            a = (t - d[j]) / (d[j + 1] - d[j])
+            w[t, j], w[t, j + 1] = 1 - a, a
+    return w
+
+
 class DelayWindow(nn.Module):
     """Delay-domain windowed LS, the ``ls_hard_window`` / ``ls_soft_window`` estimators of
     ``nr_ul_sim/windowed_ce.py`` on one (rx antenna, layer) slice; no trainable weights.
@@ -361,18 +378,7 @@ class DelayWindow(nn.Module):
         self.mode, self.threshold, self.within = mode, float(threshold), bool(within_window)
         self.pos_s, self.neg_s, self.scs = pos_us * 1e-6, neg_us * 1e-6, scs_khz * 1e3
         self.centre = int(centre)
-        d = list(dmrs)
-        w = torch.zeros(n_sym, len(d))
-        for t in range(n_sym):
-            if len(d) == 1 or t <= d[0]:
-                w[t, 0] = 1.0
-            elif t >= d[-1]:
-                w[t, -1] = 1.0
-            else:
-                j = bisect.bisect_right(d, t) - 1
-                a = (t - d[j]) / (d[j + 1] - d[j])
-                w[t, j], w[t, j + 1] = 1 - a, a
-        self.register_buffer("w", w, persistent=False)
+        self.register_buffer("w", time_weights(dmrs, n_sym), persistent=False)
 
     def window(self, m, device):
         n = BLOCK_SC * m
@@ -416,6 +422,70 @@ class DelayWindow(nn.Module):
         return torch.stack([y.real, y.imag], 1)
 
 
+class LmmseExp(nn.Module):
+    """Frequency-domain LMMSE with an exponential power-delay-profile prior, the
+    ``lmmse_exp`` idea of ``nr_ul_sim`` on one (rx antenna, layer) slice; no weights.
+
+    Each DMRS symbol is interpolated from its M block values to all 4M subcarriers with
+    W = R_fp (R_pp + s2 I)^-1, R(df) = 1 / (1 + j 2 pi df scs tau), then linear in time as
+    ``DelayWindow``. The noise-to-signal ratio s2 comes from the slice itself (second
+    differences of neighbouring blocks), since the zoo input carries no noise level.
+
+    derotate=True first removes the mean delay (block-to-block phase slope) and puts it
+    back afterwards; the over-the-air replay used that with tau = 100 ns to undo the
+    receiver's early FFT window. In simulation (ideal timing) it hurts: the centred channel
+    has energy at negative delays, which the causal prior suppresses.
+
+    Difference from nr_ul_sim: there the prior delay spread is the scenario's (CDL) or
+    1 us (UMi/UMa), the noise variance is known, and time uses a Jakes covariance. Here
+    the slice does not say which channel it came from, so tau is fixed.
+    """
+
+    def __init__(self, tau_ns=300.0, derotate=False, scs_khz=30.0, centre=1, nd=2, dmrs=DEFAULT_DMRS,
+                 n_sym=NUM_SYM):
+        super().__init__()
+        self.config = dict(tau_ns=tau_ns, derotate=derotate, scs_khz=scs_khz, centre=centre, nd=nd,
+                           dmrs=tuple(dmrs), n_sym=n_sym)
+        self.tau, self.scs, self.centre = tau_ns * 1e-9, scs_khz * 1e3, int(centre)
+        self.derotate = bool(derotate)
+        self.register_buffer("w", time_weights(dmrs, n_sym), persistent=False)
+        self._cache = {}
+
+    def _prior(self, m, device):
+        key = (m, str(device))
+        if key not in self._cache:
+            pos = torch.arange(m, dtype=torch.float64) * BLOCK_SC + self.centre
+            k = torch.arange(BLOCK_SC * m, dtype=torch.float64)
+
+            def r(df):
+                return 1.0 / (1.0 + 2j * math.pi * df * self.scs * self.tau)
+
+            lam, u = torch.linalg.eigh(r(pos[:, None] - pos[None, :]))
+            rfu = r(k[:, None] - pos[None, :]) @ u
+            self._cache[key] = (lam.clamp(min=0).float().to(device), u.to(torch.complex64).to(device),
+                                rfu.to(torch.complex64).to(device), pos.float().to(device),
+                                k.float().to(device))
+        return self._cache[key]
+
+    def forward(self, x):
+        b, _, nd, m = x.shape
+        h = torch.complex(x[:, 0].float(), x[:, 1].float())                 # [B, Nd, M]
+        lam, u, rfu, pos, k = self._prior(m, x.device)
+        if self.derotate:
+            slope = torch.angle((h[..., 1:] * h[..., :-1].conj()).sum((1, 2))) / BLOCK_SC   # [B]
+            h = h * torch.exp(-1j * slope[:, None, None] * pos)
+        sd = h[..., 1:-1] - 0.5 * (h[..., :-2] + h[..., 2:])
+        noise = sd.abs().square().mean((1, 2)) / 1.5
+        p_sig = (h.abs().square().mean((1, 2)) - noise).clamp(min=1e-12)
+        nvar = (noise / p_sig).clamp(min=1e-4)                              # [B]
+        c = torch.einsum("mi,bdm->bdi", u.conj(), h) / (lam[None, None] + nvar[:, None, None])
+        g = torch.einsum("fi,bdi->bdf", rfu, c)                             # [B, Nd, 4M]
+        if self.derotate:
+            g = g * torch.exp(1j * slope[:, None, None] * k)
+        y = torch.einsum("tn,bnf->btf", self.w.to(torch.complex64), g)
+        return torch.stack([y.real, y.imag], 1)
+
+
 # ----------------------------------------------------------------------------- registry
 MODELS = {
     "chea": lambda **kw: CHEA(d=16, **kw),
@@ -425,9 +495,10 @@ MODELS = {
     "denoiserx": DenoiseRx,
     "hard_window": lambda **kw: DelayWindow(mode="hard", **kw),
     "soft_window": lambda **kw: DelayWindow(mode="soft", **kw),
+    "lmmse_exp": LmmseExp,
 }
 CLASSES = {"CHEA": CHEA, "HELENA": HELENA, "SwiftChannel": SwiftChannel, "DenoiseRx": DenoiseRx,
-           "DelayWindow": DelayWindow}
+           "DelayWindow": DelayWindow, "LmmseExp": LmmseExp}
 
 
 def build(name: str, **kw) -> nn.Module:

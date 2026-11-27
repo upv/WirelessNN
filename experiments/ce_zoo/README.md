@@ -12,6 +12,7 @@ antennas x 2 UE ports, rank 2, 68 PRB, DMRS type 1 with one additional position)
 | `zoo_swift` | SwiftChannel student network: Lyu et al., [arXiv:2605.01931](https://arxiv.org/abs/2605.01931) | 9.6k |
 | `zoo_denoiserx` | EqDeepRx DenoiseNN + linear interpolation: Honkala et al., [arXiv:2602.11834](https://arxiv.org/abs/2602.11834) | 41.8k |
 | `zoo_hard_window`, `zoo_soft_window` | baselines: the simulator's `ls_hard_window` / `ls_soft_window` on one slice | 0 |
+| `zoo_lmmse_exp` | baseline: frequency LMMSE with an exponential delay prior on one slice | 0 |
 
 These are re-implementations from the papers, not the authors' code. Every model works on
 one (rx antenna, layer) slice: the OCC-despread DMRS LS values (one per 4 subcarriers,
@@ -31,6 +32,10 @@ each paper are listed in the model docstrings in `models.py`; the main ones:
   (`tests/test_ce_zoo_windows.py`). With several antennas the simulator's soft window
   averages tap power over them; here each slice is estimated alone. `train.py` evaluates
   them once and writes a checkpoint with the error-variance table, no training.
+- LMMSE (`LmmseExp`): frequency interpolation with an exponential delay prior of fixed
+  spread (default 300 ns), noise level from second differences of neighbouring blocks,
+  linear in time. The simulator's `lmmse_exp` knows the noise variance and the channel
+  family instead. `derotate=True` removes the mean delay first (used on air, 100 ns).
 
 ## Files
 
@@ -88,6 +93,7 @@ Validation NMSE on that data (random offsets of up to ±400 ns; LS interpolation
 | chea | 31 672 | -15.55 |
 | soft_window | 0 | -12.79 |
 | hard_window | 0 | -8.13 |
+| lmmse_exp | 0 | -5.75 (-13.78 without offsets) |
 
 ### Over-the-air replay
 
@@ -158,6 +164,7 @@ UMi, UMa, 3 to 120 km/h, SNR uniform in -10..30 dB, no interference):
 | zoo_chea | 32 816 | -15.24 | -8.5 | -21.3 | -24.4 |
 | zoo_helena | 132 984 | -15.16 | -8.3 | -21.5 | -24.6 |
 | zoo_swift | 9 628 | -14.56 | -7.7 | -20.9 | -24.3 |
+| zoo_lmmse_exp | 0 | -13.07 | -6.3 | -19.2 | -21.9 |
 | zoo_soft_window | 0 | -12.25 | | | |
 | zoo_hard_window | 0 | -6.39 | | | |
 | LS interpolation | 0 | -4.52 | | | |

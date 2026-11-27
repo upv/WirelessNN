@@ -33,6 +33,7 @@ NAMES = {
     "denoiserx": "EqDeepRx DenoiseNN + linear interpolation (arXiv 2602.11834)",
     "hard_window": "per-slice ls_hard_window (delay-domain rectangular window)",
     "soft_window": "per-slice ls_soft_window (delay-domain per-tap Wiener gain)",
+    "lmmse_exp": "per-slice frequency LMMSE, exponential delay prior (fixed tau)",
 }
 
 
