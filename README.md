@@ -26,20 +26,24 @@ small neural channel estimators beat the gNB's own estimate by about 0.9 dB of f
 (median per slot), Channelformer by 0.84 dB and a well-tuned LMMSE by 0.6 dB. The
 42k-weight DenoiseNN matches the 300k-weight CHEA-XL, and both lead in simulation too.
 
-| Estimator | Weights | Simulation NMSE, 4x2 [dB] | Over the air, gain vs gNB estimate [dB] |
-| --- | ---: | ---: | ---: |
-| `zoo_chea_xl` (CHEA-XL) | 302k | -16.29 | +0.88 to +0.97 |
-| `zoo_denoiserx` (EqDeepRx DenoiseNN) | 42k | **-16.60** | +0.87 to +0.97 |
-| `channelformer` | 192k | -15.33 | +0.82 to +0.93 |
-| `zoo_helena` (HELENA) | 133k | -15.16 | +0.76 to +0.85 |
-| `zoo_swift` (SwiftChannel) | 9.6k | -14.56 | +0.71 to +0.78 |
-| `zoo_chea` (CHEA) | 33k | -15.24 | +0.66 to +0.73 |
-| `lmmse_exp` (LMMSE, exponential prior) | 0 | -13.07 | +0.58 to +0.78 |
-| `ls_soft_window`, delay removed first | 0 | -12.25 | +0.35 to +0.76 |
-| `ls_lin` (LS + linear interpolation) | 0 | -4.52 | -0.07 to +0.07 |
+| Estimator | Weights | Simulation NMSE, 4x2 [dB] | Simulation BLER, loss vs perfect CSI, 4x2 [dB] | Over the air, gain vs gNB estimate [dB] |
+| --- | ---: | ---: | ---: | ---: |
+| `zoo_chea_xl` (CHEA-XL) | 302k | -16.29 | 0.67 | +0.88 to +0.97 |
+| `zoo_denoiserx` (EqDeepRx DenoiseNN) | 42k | **-16.60** | **0.65** | +0.87 to +0.97 |
+| `channelformer` | 192k | -15.33 | 0.73 | +0.82 to +0.93 |
+| `zoo_helena` (HELENA) | 133k | -15.16 | 0.71 | +0.76 to +0.85 |
+| `zoo_swift` (SwiftChannel) | 9.6k | -14.56 | 0.79 | +0.71 to +0.78 |
+| `zoo_chea` (CHEA) | 33k | -15.24 | 0.73 | +0.66 to +0.73 |
+| `lmmse_exp` (LMMSE, exponential prior) | 0 | -13.07 | 1.57 | +0.58 to +0.78 |
+| `ls_soft_window`, delay removed first | 0 | -12.25 | – | +0.35 to +0.76 |
+| `ls_lin` (LS + linear interpolation) | 0 | -4.52 | – | -0.07 to +0.07 |
 
 Simulation: validation NMSE on the 4x2 MIMO set (CDL-B/C/D, UMi, UMa, SNR -10 to 30 dB);
 LMMSE there uses a 300 ns prior and estimates the noise level from the slice itself.
+BLER: mean distance to perfect CSI of the SNR at 10 % BLER over 5 channels x 3 MCS at
+30 km/h (quick sweep, about ±0.3 dB; the LMMSE row there is the simulator's `lmmse_exp`,
+which knows the noise variance; – = not in that sweep;
+[table](experiments/ce_zoo/README.md#results-bler-working-points)).
 Over the air: models retrained for the stand's slot layout, range of the median gain
 over six UE sets, 1 layer, uplink SNR 16 to 21 dB. Channelformer, LMMSE and the soft window
 get the stand's mean delay (about -110 ns) removed first; the ce_zoo models were trained
