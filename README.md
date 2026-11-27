@@ -52,7 +52,10 @@ about half as large. Setup, method and the 1-RX numbers:
 **Link level.** In a 4x2 MIMO campaign (68 PRB, rank 2, 45 scenarios) the Channelformer
 estimator loses 0.17 dB on average against perfect CSI on CDL channels, and the best
 classical estimators lose about 0.5–0.7 dB. On UMi/UMa every estimator loses 2–4 dB,
-most of it at 64QAM. The ce_zoo models have not been run through this BLER campaign yet.
+most of it at 64QAM. A quick BLER sweep of the ce_zoo models on the same link (30 km/h,
+1 dB grid) puts all of them within 0.15 dB of each other: mean loss against perfect CSI
+0.65 dB for DenoiseNN and CHEA-XL, 0.73 dB for Channelformer, 1.57 dB for the simulator's
+`lmmse_exp` ([table](experiments/ce_zoo/README.md#results-bler-working-points)).
 Across 5000 random channel configurations the matched-prior LMMSE has the lowest median
 loss (0.6 dB) but misses the target in 16 % of them. These and other results, with
 setups and reproduction commands, are in [docs/RESULTS.md](docs/RESULTS.md).

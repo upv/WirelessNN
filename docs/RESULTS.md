@@ -56,8 +56,12 @@ them it drops to -5.75 dB, because its causal prior cannot follow negative delay
   delay themselves: removing it first changes their result by at most 0.03 dB.
 - **Two antennas roughly double the gain.** With one receive antenna the same models
   gain +0.17 to +0.38 dB (CHEA-XL +0.38, LMMSE +0.21), since noise dominates at this SNR.
-- These are channel-estimation results: the ce_zoo models have not been run through a
-  BLER campaign yet, and the air interface was rank 1 at one SNR range in one room.
+- **Link level (simulation).** A quick BLER sweep on the 4x2 link (5 channels x 3 MCS,
+  30 km/h) gives a mean loss against perfect CSI of 0.65 dB (DenoiseNN, CHEA-XL) to
+  0.79 dB (SwiftChannel), Channelformer 0.73 dB, the simulator's `lmmse_exp` 1.57 dB;
+  differences below about 0.3 dB are within the sweep's accuracy
+  ([table](../experiments/ce_zoo/README.md#results-bler-working-points)).
+- The air interface was rank 1 at one SNR range in one room.
 
 Recipes, per-model deviations from the papers and the full tables:
 [experiments/ce_zoo](../experiments/ce_zoo/README.md). The capture and replay tools are
