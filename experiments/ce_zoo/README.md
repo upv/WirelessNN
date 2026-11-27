@@ -46,6 +46,7 @@ each paper are listed in the model docstrings in `models.py`; the main ones:
 | `run_all.sh` | trains all five in sequence and writes the summary |
 | `summarize.py` | markdown table against Channelformer and LS interpolation |
 | `plugin.py` | registers the `zoo_*` estimators |
+| `bler.py` | quick BLER sweep (working points) and the summary table |
 
 ## Reproduce
 
@@ -171,5 +172,40 @@ UMi, UMa, 3 to 120 km/h, SNR uniform in -10..30 dB, no interference):
 
 The windows level off near -21 dB above about 15 dB SNR (band-edge leakage), below plain
 LS at 30 dB. DenoiseRx was the best model in every channel type (CDL-B/C/D, UMi, UMa). All runs had
-stopped improving well before epoch 60. These are channel-estimation errors only; BLER
-with these estimators has not been simulated yet.
+stopped improving well before epoch 60.
+
+## Results (BLER working points)
+
+SNR at 10 % BLER on the 4x2 link of the [Channelformer campaign](../channelformer/README.md)
+(68 PRB, rank 2, LMMSE receiver + LDPC, MCS table 1 index 5/14/20 = QPSK/16QAM/64QAM),
+averaged over the five channels (CDL-B, CDL-C, CDL-D, UMi, UMa) at 30 km/h. The last
+column is the mean distance to perfect CSI over all 15 channel x modulation points.
+All estimators ran on the same slots in each scenario.
+
+| estimator | params | val NMSE [dB] | QPSK [dB] | 16QAM [dB] | 64QAM [dB] | loss vs perfect CSI [dB] |
+|---|---|---|---|---|---|---|
+| perfect CSI | | | -2.2 | 7.1 | 12.5 | |
+| zoo_denoiserx | 41 794 | **-16.60** | -1.8 | 7.6 | 13.6 | **0.65** |
+| zoo_chea_xl | 302 288 | -16.29 | -1.8 | 7.6 | 13.6 | 0.67 |
+| zoo_helena | 132 984 | -15.16 | -1.7 | 7.6 | 13.6 | 0.71 |
+| zoo_chea | 32 816 | -15.24 | -1.7 | 7.6 | 13.7 | 0.73 |
+| channelformer | 191 963 | -15.33 | -1.7 | 7.6 | 13.7 | 0.73 |
+| zoo_swift | 9 628 | -14.56 | -1.6 | 7.7 | 13.7 | 0.79 |
+| lmmse_exp (simulator) | 0 | | -1.3 | 7.9 | 15.5 | 1.57 |
+
+This is a quick sweep: 1 dB SNR grid (QPSK -5..3, 16QAM 3..14, 64QAM 8..24 dB), at most
+96 slots or 50 block errors per point, one speed; the working points are good to about
+±0.3 dB, so differences below that between the neural models are not significant. All
+neural models are within 0.15 dB of each other on average and halve the loss of the
+simulator's `lmmse_exp`. The gap to perfect CSI is small on CDL (0.0 to 0.6 dB, swift up to 0.8 dB) and grows
+on UMi/UMa: 64QAM on UMi loses 1.7 dB (denoiserx, chea_xl) to 2.2 dB (channelformer), on
+UMa about 3.2 dB, where `lmmse_exp` loses 8.9 dB. On CDL-D 64QAM `lmmse_exp` loses 2.6 dB
+and every neural model none. Per-scenario curves: `results/bler_20261127/*.json`
+(full `SimConfig` in each file; code at 862753e plus this script, Channelformer checkpoint
+`channelformer_4x2.pt`, 62.6 min on an RTX PRO 4000).
+
+```bash
+export PYTHONPATH=.:experiments/channelformer:experiments/ce_zoo
+CE_ZOO_WEIGHTS=runs/zoo python experiments/ce_zoo/bler.py --out results/zoo_bler
+python experiments/ce_zoo/bler.py --out results/zoo_bler --summary runs/zoo   # the table above
+```
